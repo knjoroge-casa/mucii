@@ -1,20 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Clock, AlertTriangle, ShoppingCart, TrendingUp, CheckCircle, Package } from 'lucide-react';
 
-const Dashboard = ({ inventoryItems = [], shoppingItems = [], onNavigateToTab, houseName = 'Mûcií' }) => {
-  // Calculate real stats from actual data
-  const lowStockItems = inventoryItems.filter(item => item.currentStock <= item.lowStockThreshold);
-  const highPriorityTasks = [];
-
-  // Calculate real data from other modules
-  const highPriorityTasksReal = [
-    { name: 'Deep clean bathroom', assignee: 'Maria', due: 'Tomorrow', priority: 'high' }
-  ]; // This would come from TaskManagement in a real implementation
-
+const Dashboard = () => {
   const stats = [
     {
       title: 'Overdue Tasks',
-      value: '0',
+      value: '3',
       icon: Clock,
       color: 'from-red-500 to-red-600',
       bgColor: 'bg-red-50',
@@ -22,7 +13,7 @@ const Dashboard = ({ inventoryItems = [], shoppingItems = [], onNavigateToTab, h
     },
     {
       title: 'Low Stock Items',
-      value: lowStockItems.length.toString(),
+      value: '5',
       icon: AlertTriangle,
       color: 'from-amber-500 to-amber-600',
       bgColor: 'bg-amber-50',
@@ -30,39 +21,40 @@ const Dashboard = ({ inventoryItems = [], shoppingItems = [], onNavigateToTab, h
     },
     {
       title: 'Shopping List',
-      value: shoppingItems.length.toString(),
+      value: '12',
       icon: ShoppingCart,
       color: 'from-blue-500 to-blue-600',
       bgColor: 'bg-blue-50',
       textColor: 'text-blue-600'
+    },
+    {
+      title: 'Tasks This Week',
+      value: '8',
+      icon: TrendingUp,
+      color: 'from-green-500 to-green-600',
+      bgColor: 'bg-green-50',
+      textColor: 'text-green-600'
     }
   ];
 
-  const handleAddToShoppingList = (item) => {
-    const shoppingItem = {
-      id: Date.now(),
-      name: item.name,
-      category: item.category,
-      quantity: 1,
-      unit: item.unit,
-      priority: 'medium',
-      completed: false,
-      fromInventory: true,
-      inventoryId: item.id,
-      dateAdded: new Date().toISOString()
-    };
-    
-    // This would need to be handled by a callback from App.tsx
-    // For now, we'll use the existing generate function
-    onGenerateShoppingList();
-  };
+  const upcomingTasks = [
+    { name: 'Deep clean bathroom', assignee: 'Maria', due: 'Tomorrow', priority: 'high' },
+    { name: 'Grocery shopping', assignee: 'You', due: 'Today', priority: 'medium' },
+    { name: 'Vacuum living room', assignee: 'John', due: 'Friday', priority: 'low' },
+  ];
+
+  const lowStockItems = [
+    { name: 'Dishwasher detergent', current: '1 bottle', threshold: '2 bottles', category: 'Cleaning' },
+    { name: 'Olive oil', current: '50ml', threshold: '200ml', category: 'Pantry' },
+    { name: 'Hand soap', current: '1 bar', threshold: '3 bars', category: 'Toiletries' },
+  ];
 
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
       <div className="text-center">
         <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-900 to-amber-600 bg-clip-text text-transparent mb-2">
-          Welcome back to {houseName}
+          Welcome back to Mûcií
         </h1>
         <p className="text-gray-600 text-lg">Your home management overview</p>
       </div>
@@ -96,17 +88,12 @@ const Dashboard = ({ inventoryItems = [], shoppingItems = [], onNavigateToTab, h
               <CheckCircle className="w-5 h-5 mr-2 text-purple-600" />
               Upcoming Tasks
             </h2>
-            <button 
-              onClick={() => onNavigateToTab && onNavigateToTab('tasks')}
-              className="text-purple-600 hover:text-purple-800 text-sm font-medium"
-            >
-              View All
-            </button>
+            <button className="text-purple-600 hover:text-purple-800 text-sm font-medium">View All</button>
           </div>
           
-          {highPriorityTasksReal.length > 0 ? (
+          {upcomingTasks.length > 0 ? (
             <div className="space-y-4">
-              {highPriorityTasksReal.map((task, index) => (
+              {upcomingTasks.map((task, index) => (
                 <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-white/50 to-purple-50/50 rounded-xl border border-purple-100/50">
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900">{task.name}</h3>
@@ -125,7 +112,7 @@ const Dashboard = ({ inventoryItems = [], shoppingItems = [], onNavigateToTab, h
           ) : (
             <div className="text-center py-8">
               <CheckCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No tasks yet. Create your first task to get started!</p>
+              <p className="text-gray-500">No upcoming tasks</p>
             </div>
           )}
         </div>
@@ -137,12 +124,7 @@ const Dashboard = ({ inventoryItems = [], shoppingItems = [], onNavigateToTab, h
               <Package className="w-5 h-5 mr-2 text-amber-600" />
               Low Stock Alerts
             </h2>
-            <button 
-              onClick={() => onNavigateToTab && onNavigateToTab('inventory')}
-              className="text-purple-600 hover:text-purple-800 text-sm font-medium"
-            >
-              View All
-            </button>
+            <button className="text-purple-600 hover:text-purple-800 text-sm font-medium">View All</button>
           </div>
           
           {lowStockItems.length > 0 ? (
@@ -151,13 +133,10 @@ const Dashboard = ({ inventoryItems = [], shoppingItems = [], onNavigateToTab, h
                 <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-white/50 to-amber-50/50 rounded-xl border border-amber-100/50">
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900">{item.name}</h3>
-                    <p className="text-sm text-gray-600">{item.currentStock} {item.unit} remaining • {item.category}</p>
+                    <p className="text-sm text-gray-600">{item.current} remaining • {item.category}</p>
                   </div>
-                  <button 
-                    onClick={() => handleAddToShoppingList(item)}
-                    className="bg-gradient-to-r from-purple-900 to-purple-800 text-white px-3 py-1 rounded-lg text-xs font-medium hover:shadow-lg transition-all"
-                  >
-                    Add to Shopping List
+                  <button className="bg-gradient-to-r from-purple-900 to-purple-800 text-white px-3 py-1 rounded-lg text-xs font-medium hover:shadow-lg transition-all">
+                    Add to List
                   </button>
                 </div>
               ))}
@@ -165,7 +144,7 @@ const Dashboard = ({ inventoryItems = [], shoppingItems = [], onNavigateToTab, h
           ) : (
             <div className="text-center py-8">
               <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No inventory items yet. Add items to track your household supplies!</p>
+              <p className="text-gray-500">All items well stocked</p>
             </div>
           )}
         </div>
