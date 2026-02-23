@@ -1,21 +1,37 @@
 import React, { useState } from 'react';
 import { Plus, User, Edit3, Trash2, Mail, Calendar } from 'lucide-react';
+import { supabase } from '../utils/supabaseClient';
 
 const UserManagement = () => {
   const [showUserForm, setShowUserForm] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [userForm, setUserForm] = useState({
     name: '',
     email: '',
     role: 'member'
   });
 
-  const users = [
-    { id: 1, name: 'Alex', email: 'alex@email.com', role: 'Admin', joinDate: '18/09/2025', avatar: 'A' },
-    { id: 2, name: 'Maria', email: 'maria@email.com', role: 'Housekeeper', joinDate: '18/09/2025', avatar: 'M' },
-    { id: 3, name: 'John', email: 'john@email.com', role: 'Member', joinDate: '18/09/2025', avatar: 'J' },
-    { id: 4, name: 'Sarah', email: 'sarah@email.com', role: 'Member', joinDate: '18/09/2025', avatar: 'S' },
-    { id: 5, name: 'David', email: 'david@email.com', role: 'Member', joinDate: '18/09/2025', avatar: 'D' }
-  ];
+  // Load users from database
+  React.useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        setUsers(data || []);
+      } catch (error) {
+        console.error('Error loading users:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadUsers();
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -52,60 +68,73 @@ const UserManagement = () => {
       </div>
 
       {/* Users Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {users.map((user) => (
-          <div key={user.id} className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-white/50 shadow-lg hover:shadow-xl transition-all duration-300">
-            {/* User Avatar */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-amber-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                  {user.avatar}
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading users...</p>
+        </div>
+      ) : users.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {users.map((user) => (
+            <div key={user.id} className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-white/50 shadow-lg hover:shadow-xl transition-all duration-300">
+              {/* User Avatar */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-amber-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                    {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-lg">{user.full_name}</h3>
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
+                      {user.role}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 text-lg">{user.name}</h3>
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
-                    {user.role}
-                  </span>
+                <div className="flex space-x-2">
+                  <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                  <button className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-              <div className="flex space-x-2">
-                <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
-                  <Edit3 className="w-4 h-4" />
-                </button>
-                <button className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
 
-            {/* User Info */}
-            <div className="space-y-3">
-              <div className="flex items-center space-x-3 text-gray-600">
-                <Mail className="w-4 h-4" />
-                <span className="text-sm">{user.email}</span>
+              {/* User Info */}
+              <div className="space-y-3">
+                <div className="flex items-center space-x-3 text-gray-600">
+                  <Mail className="w-4 h-4" />
+                  <span className="text-sm">{user.email}</span>
+                </div>
+                <div className="flex items-center space-x-3 text-gray-600">
+                  <Calendar className="w-4 h-4" />
+                  <span className="text-sm">Member since {new Date(user.created_at).toLocaleDateString('en-GB')}</span>
+                </div>
               </div>
-              <div className="flex items-center space-x-3 text-gray-600">
-                <Calendar className="w-4 h-4" />
-                <span className="text-sm">Member since {user.joinDate}</span>
-              </div>
-            </div>
 
-            {/* Task Stats */}
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="grid grid-cols-2 gap-4 text-center">
-                <div>
-                  <div className="text-2xl font-bold text-purple-900">5</div>
-                  <div className="text-xs text-gray-500">Active Tasks</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-green-600">12</div>
-                  <div className="text-xs text-gray-500">Completed</div>
+              {/* Task Stats */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="grid grid-cols-2 gap-4 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-purple-900">0</div>
+                    <div className="text-xs text-gray-500">Active Tasks</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">0</div>
+                    <div className="text-xs text-gray-500">Completed</div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-12 border border-white/50 shadow-lg text-center">
+          <User className="w-20 h-20 text-gray-400 mx-auto mb-6" />
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">No users yet</h3>
+          <p className="text-gray-500 mb-6">Users will appear here when they sign up for your household</p>
+        </div>
+      )}
 
       {/* Add User Modal */}
       {showUserForm && (
