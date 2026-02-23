@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Calendar, User, MapPin, Edit3, Check, X, Trash2 } from 'lucide-react';
 
-const TaskManagement = () => {
+const TaskManagement = ({ tasks, setTasks }) => {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
@@ -9,69 +9,6 @@ const TaskManagement = () => {
   const [selectedZone, setSelectedZone] = useState('all');
   const [selectedAssignee, setSelectedAssignee] = useState('all');
   
-  const [tasks, setTasks] = useState([
-    {
-      id: 1,
-      title: 'Deep clean bathroom',
-      description: 'Scrub tiles, clean grout, and sanitize all surfaces',
-      zone: 'Master Bathroom',
-      frequency: ['weekly'],
-      weekDays: ['Saturday'],
-      priority: 'high',
-      assignee: 'Maria',
-      date: '2025-01-25',
-      completed: false,
-      completedAt: null,
-      completedBy: null,
-      createdAt: '2025-01-18'
-    },
-    {
-      id: 2,
-      title: 'Vacuum and mop floors',
-      description: 'Complete floor cleaning including under furniture',
-      zone: 'Living Room',
-      frequency: ['weekly'],
-      weekDays: ['Monday', 'Friday'],
-      priority: 'medium',
-      assignee: 'John',
-      date: '2025-01-20',
-      completed: false,
-      completedAt: null,
-      completedBy: null,
-      createdAt: '2025-01-18'
-    },
-    {
-      id: 3,
-      title: 'Organize pantry shelves',
-      description: 'Sort items by category and check expiration dates',
-      zone: 'Pantry',
-      frequency: ['monthly'],
-      weekDays: [],
-      priority: 'low',
-      assignee: 'You',
-      date: '2025-02-01',
-      completed: true,
-      completedAt: '2025-01-20T14:30:00',
-      completedBy: 'You',
-      createdAt: '2025-01-15'
-    },
-    {
-      id: 4,
-      title: 'Clean windows',
-      description: 'Clean all windows inside and outside',
-      zone: 'Living Room',
-      frequency: ['monthly'],
-      weekDays: [],
-      priority: 'medium',
-      assignee: 'Maria',
-      date: '2025-01-15',
-      completed: true,
-      completedAt: '2025-01-15T10:15:00',
-      completedBy: 'Maria',
-      createdAt: '2025-01-10'
-    }
-  ]);
-
   const [taskForm, setTaskForm] = useState({
     title: '',
     description: '',
