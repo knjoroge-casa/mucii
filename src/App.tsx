@@ -5,8 +5,6 @@ import TaskManagement from './components/TaskManagement';
 import InventoryManagement from './components/InventoryManagement';
 import ShoppingList from './components/ShoppingList';
 import SettingsPage from './components/SettingsPage';
-import { supabase } from './utils/supabaseClient';
-
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   
@@ -102,7 +100,6 @@ function App() {
           <SettingsPage 
             houseName={houseName}
             setHouseName={setHouseName}
-            onSignOut={handleSignOut}
           />
         );
       default:
@@ -114,14 +111,6 @@ function App() {
             houseName={houseName}
           />
         );
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (error) {
-      console.error('Sign out error:', error);
     }
   };
 
