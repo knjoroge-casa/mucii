@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
-import { Home, Users, Settings as SettingsIcon, Save, LogOut, User } from 'lucide-react';
+import { Home, Users, Settings as SettingsIcon, Save } from 'lucide-react';
 import UserManagement from './UserManagement';
 
 interface SettingsPageProps {
   houseName: string;
   setHouseName: (name: string) => void;
-  onSignOut: () => void;
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ houseName, setHouseName, onSignOut }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ houseName, setHouseName }) => {
   const [tempHouseName, setTempHouseName] = useState(houseName);
   const [activeSection, setActiveSection] = useState('house');
   const [saved, setSaved] = useState(false);
@@ -22,8 +21,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ houseName, setHouseName, on
 
   const sections = [
     { id: 'house', name: 'House Customization', icon: Home },
-    { id: 'users', name: 'User Management', icon: Users },
-    { id: 'account', name: 'Account', icon: User }
+    { id: 'users', name: 'User Management', icon: Users }
   ];
 
   const renderContent = () => {
@@ -79,36 +77,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ houseName, setHouseName, on
       
       case 'users':
         return <UserManagement />;
-      
-      case 'account':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Account Settings</h3>
-              <p className="text-gray-600 mb-6">
-                Manage your account preferences and sign out of the application.
-              </p>
-              
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-white/50 shadow-lg">
-                <div className="space-y-4">
-                  <div className="border-b border-gray-200 pb-4">
-                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Sign Out</h4>
-                    <p className="text-gray-600 mb-4">
-                      Sign out of your account and return to the home page.
-                    </p>
-                    <button
-                      onClick={onSignOut}
-                      className="flex items-center space-x-2 px-6 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-all duration-200 shadow-lg hover:shadow-xl"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>Sign Out</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
       
       default:
         return null;

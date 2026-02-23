@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Home, CheckSquare, Package, ShoppingCart, Settings, LogOut } from 'lucide-react';
+import HomePage from './components/HomePage';
+import LandingPage from './components/LandingPage';
 import Dashboard from './components/Dashboard';
 import TaskManagement from './components/TaskManagement';
 import InventoryManagement from './components/InventoryManagement';
@@ -9,15 +11,33 @@ import { supabase } from './utils/supabaseClient';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [showHomePage, setShowHomePage] = useState(true);
   
   // Real data from database
   const [inventoryItems, setInventoryItems] = useState([]);
   const [shoppingItems, setShoppingItems] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
 
   // House customization
   const [houseName, setHouseName] = useState(() => {
     return localStorage.getItem('houseName') || 'Mûcií';
   });
+
+  // Check for existing session on app load
+  React.useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setIsLoggedIn(true);
+        setCurrentUser(session.user);
+        setShowHomePage(false);
+        // Load user data here
+      }
+    };
+    checkSession();
+  }, []);
 
   const tabs = [
     { id: 'dashboard', name: 'Dashboard', icon: Home },
@@ -102,7 +122,6 @@ function App() {
           <SettingsPage 
             houseName={houseName}
             setHouseName={setHouseName}
-            onSignOut={handleSignOut}
           />
         );
       default:
@@ -117,13 +136,53 @@ function App() {
     }
   };
 
+  const handleLoginSuccess = () => {
+    setIsLoggedIn(true);
+    setShowAuth(false);
+    setShowHomePage(false);
+  };
+
+  const handleGetStarted = () => {
+    setShowAuth(true);
+    setShowHomePage(false);
+  };
+
+  const handleBackToHome = () => {
+    setShowAuth(false);
+    setShowHomePage(true);
+  };
+
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
     } catch (error) {
       console.error('Sign out error:', error);
+    } finally {
+      setIsLoggedIn(false);
+      setCurrentUser(null);
+      setActiveTab('dashboard');
+      setInventoryItems([]);
+      setShoppingItems([]);
+      setShowHomePage(true);
     }
   };
+
+  // Show home page by default
+  if (showHomePage && !isLoggedIn) {
+    return <HomePage onGetStarted={handleGetStarted} />;
+  }
+
+  // Show auth page when requested
+  if (!isLoggedIn) {
+    if (showAuth) {
+      return (
+        <LandingPage 
+          onLoginSuccess={handleLoginSuccess} 
+          onBackToHome={handleBackToHome}
+        />
+      );
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-amber-50">
@@ -146,6 +205,15 @@ function App() {
 
             {/* Navigation */}
             <nav className="flex space-x-1">
+              <div className="flex items-center space-x-1 mr-4">
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (

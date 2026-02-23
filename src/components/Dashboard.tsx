@@ -6,11 +6,6 @@ const Dashboard = ({ inventoryItems = [], shoppingItems = [], onNavigateToTab, h
   const lowStockItems = inventoryItems.filter(item => item.currentStock <= item.lowStockThreshold);
   const highPriorityTasks = [];
 
-  // Calculate real data from other modules
-  const highPriorityTasksReal = [
-    { name: 'Deep clean bathroom', assignee: 'Maria', due: 'Tomorrow', priority: 'high' }
-  ]; // This would come from TaskManagement in a real implementation
-
   const stats = [
     {
       title: 'Overdue Tasks',
@@ -35,6 +30,14 @@ const Dashboard = ({ inventoryItems = [], shoppingItems = [], onNavigateToTab, h
       color: 'from-blue-500 to-blue-600',
       bgColor: 'bg-blue-50',
       textColor: 'text-blue-600'
+    },
+    {
+      title: 'Tasks This Week',
+      value: '0',
+      icon: TrendingUp,
+      color: 'from-green-500 to-green-600',
+      bgColor: 'bg-green-50',
+      textColor: 'text-green-600'
     }
   ];
 
@@ -104,9 +107,9 @@ const Dashboard = ({ inventoryItems = [], shoppingItems = [], onNavigateToTab, h
             </button>
           </div>
           
-          {highPriorityTasksReal.length > 0 ? (
+          {highPriorityTasks.length > 0 ? (
             <div className="space-y-4">
-              {highPriorityTasksReal.map((task, index) => (
+              {highPriorityTasks.map((task, index) => (
                 <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-white/50 to-purple-50/50 rounded-xl border border-purple-100/50">
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900">{task.name}</h3>

@@ -326,7 +326,7 @@ const ShoppingList = ({ inventoryItems = [], onUpdateInventory, shoppingItems: p
         )}
       </div>
 
-      {/* Purchase History */}
+      {/* Purchased Items Section */}
       {purchasedItems.length > 0 && (
         <div>
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Purchase History ({purchasedItems.length} items)</h2>
