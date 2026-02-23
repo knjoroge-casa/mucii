@@ -321,6 +321,12 @@ const ShoppingList = ({ inventoryItems = [], onUpdateInventory, shoppingItems: p
               >
                 Add Items Manually
               </button>
+              <button 
+                onClick={generateFromInventory}
+                className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
+              >
+                Generate from Inventory
+              </button>
             </div>
           </div>
         )}

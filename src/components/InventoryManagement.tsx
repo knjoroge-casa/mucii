@@ -58,7 +58,9 @@ const InventoryManagement = ({ inventoryItems: propInventoryItems, setInventoryI
 
   // Filter inventory items
   const filteredItems = inventoryItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.storageLocation.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
     const matchesLowStock = !showLowStockOnly || item.currentStock <= item.lowStockThreshold;
     
@@ -178,7 +180,7 @@ const InventoryManagement = ({ inventoryItems: propInventoryItems, setInventoryI
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search inventory items by name..."
+              placeholder="Search inventory items, categories, or storage locations..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-12 pr-4 py-3 bg-white/70 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -217,69 +219,71 @@ const InventoryManagement = ({ inventoryItems: propInventoryItems, setInventoryI
 
       {/* Inventory Items */}
       {filteredItems.length > 0 ? (
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-white/50 shadow-lg overflow-hidden">
-          <div className="divide-y divide-gray-200">
-            {filteredItems.map((item) => {
-              const stockStatus = getStockStatus(item);
-              return (
-                <div key={item.id} className="p-6 hover:bg-gray-50/50 transition-all">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredItems.map((item) => {
+            const stockStatus = getStockStatus(item);
+            return (
+              <div key={item.id} className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-white/50 shadow-lg hover:shadow-xl transition-all duration-300">
+                {/* Item Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg text-gray-900 mb-1">
+                      {item.name}
+                    </h3>
+                    <span className="inline-block px-3 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
+                      {item.category}
+                    </span>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleEdit(item)}
+                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirmItem(item)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Stock Information */}
+                <div className={`p-4 rounded-xl mb-4 ${stockStatus.bg}`}>
                   <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-4 mb-2">
-                        <h3 className="font-bold text-lg text-gray-900">
-                          {item.name}
-                        </h3>
-                        <span className="inline-block px-3 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
-                          {item.category}
-                        </span>
-                        {item.autoAddToShopping && (
-                          <div className="flex items-center space-x-1">
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span className="text-xs text-green-600">Auto-add</span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
-                        <div className="flex items-center space-x-2">
-                          <Package className="w-4 h-4" />
-                          <span className={`font-semibold ${stockStatus.color}`}>
-                            {item.currentStock} {item.unit}
-                          </span>
-                          <span className="text-gray-400">
-                            (Alert: ≤{item.lowStockThreshold})
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <MapPin className="w-4 h-4" />
-                          <span>{item.storageLocation}</span>
-                        </div>
-                        <div className={`px-3 py-1 rounded-full text-xs font-medium ${stockStatus.bg} ${stockStatus.color} w-fit`}>
-                          {stockStatus.status === 'out' ? 'Out of Stock' : 
-                           stockStatus.status === 'low' ? 'Low Stock' : 'In Stock'}
-                        </div>
-                      </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Current Stock</p>
+                      <p className={`text-2xl font-bold ${stockStatus.color}`}>
+                        {item.currentStock} {item.unit}
+                      </p>
                     </div>
-                    
-                    <div className="flex space-x-2 ml-4">
-                      <button
-                        onClick={() => handleEdit(item)}
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirmItem(item)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600">Low Stock Alert</p>
+                      <p className="text-sm font-medium text-gray-700">
+                        ≤ {item.lowStockThreshold} {item.unit}
+                      </p>
                     </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+
+                {/* Storage Location */}
+                <div className="flex items-center space-x-2 mb-3">
+                  <MapPin className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm text-gray-600">{item.storageLocation}</span>
+                </div>
+
+                {/* Auto Shopping */}
+                {item.autoAddToShopping && (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-xs text-green-600">Auto-add to shopping list</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-12 border border-white/50 shadow-lg text-center">
