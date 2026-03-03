@@ -9,12 +9,13 @@ import InventoryManagement from './components/InventoryManagement';
 import ShoppingList from './components/ShoppingList';
 import SettingsPage from './components/SettingsPage';
 
-type AppScreen = 'loading' | 'auth' | 'setup' | 'app';
+type AppScreen = 'loading' | 'auth' | 'setup' | 'pin' | 'app';
 interface OwnerUser { id: string; email: string; full_name: string; }
 
 function App() {
   const [screen, setScreen] = useState<AppScreen>('loading');
   const [ownerUser, setOwnerUser] = useState<OwnerUser | null>(null);
+  const [activeUser, setActiveUser] = useState<{id:string; full_name:string; role:string; is_owner:boolean} | null>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [tasks, setTasks] = useState([]);
   const [inventoryItems, setInventoryItems] = useState([]);
@@ -67,7 +68,7 @@ function App() {
       if (settings?.house_name) {
         setHouseName(settings.house_name);
         localStorage.setItem('houseName', settings.house_name);
-        setScreen('app');
+        setScreen('pin');
       } else {
         setScreen('setup');
       }
@@ -77,7 +78,7 @@ function App() {
   };
 
   const handleAuthSuccess = () => {};
-  const handleSetupComplete = (name: string) => { setHouseName(name); setScreen('app'); };
+  const handleSetupComplete = (name: string) => { setHouseName(name); setScreen('pin'); };
 
   const handleAddToShoppingList = async (item) => {
     const alreadyAdded = shoppingItems.some(s => s.fromInventory && s.inventoryId === item.id && !s.completed);
@@ -187,7 +188,20 @@ function App() {
   if (screen === 'setup' && ownerUser) {
     return <HouseholdSetup userId={ownerUser.id} userFullName={ownerUser.full_name} onSetupComplete={handleSetupComplete} />;
   }
+if (screen === 'setup' && ownerUser) {
+  return <HouseholdSetup userId={ownerUser.id} userFullName={ownerUser.full_name} onSetupComplete={handleSetupComplete} />;
+}
 
+// ← ADD THIS BLOCK RIGHT HERE
+if (screen === 'pin') {
+  return (
+    <PinSelectionScreen
+      houseName={houseName}
+      onUserSelected={(user) => { setActiveUser(user); setScreen('app'); }}
+      onSignOut={async () => { await supabase.auth.signOut(); }}
+    />
+  );
+}
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-amber-50">
       <header className="bg-white/80 backdrop-blur-sm border-b border-white/50 sticky top-0 z-40">
