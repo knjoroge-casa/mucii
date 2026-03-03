@@ -5,9 +5,10 @@ import UserManagement from './UserManagement';
 interface SettingsPageProps {
   houseName: string;
   setHouseName: (name: string) => void;
+  tasks?: any[];
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ houseName, setHouseName }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ houseName, setHouseName, tasks = [] }) => {
   const [tempHouseName, setTempHouseName] = useState(houseName);
   const [activeSection, setActiveSection] = useState('house');
   const [saved, setSaved] = useState(false);
@@ -76,7 +77,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ houseName, setHouseName }) 
         );
       
       case 'users':
-        return <UserManagement />;
+        return <UserManagement tasks={tasks} />;
       
       default:
         return null;
