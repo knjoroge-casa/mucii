@@ -8,6 +8,7 @@ import TaskManagement from './components/TaskManagement';
 import InventoryManagement from './components/InventoryManagement';
 import ShoppingList from './components/ShoppingList';
 import SettingsPage from './components/SettingsPage';
+import PinSelectionScreen from './components/PinSelectionScreen';
 
 type AppScreen = 'loading' | 'auth' | 'setup' | 'pin' | 'app';
 interface OwnerUser { id: string; email: string; full_name: string; }
