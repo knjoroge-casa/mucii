@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Home, CheckSquare, Package, ShoppingCart, Settings, LogOut } from 'lucide-react';
+import { Home, CheckSquare, Package, ShoppingCart, Settings } from 'lucide-react';
+import { supabase } from './utils/supabaseClient';
 import Dashboard from './components/Dashboard';
 import TaskManagement from './components/TaskManagement';
 import InventoryManagement from './components/InventoryManagement';
@@ -26,14 +27,14 @@ function App() {
     { id: 'settings', name: 'Settings', icon: Settings }
   ];
 
-  const handleAddToShoppingList = (item) => {
-    const alreadyAdded = shoppingItems.some(s => s.fromInventory && s.inventoryId === item.id);
+  const handleAddToShoppingList = async (item) => {
+    const alreadyAdded = shoppingItems.some(s => s.fromInventory && s.inventoryId === item.id && !s.completed);
     if (alreadyAdded) return;
     const newItem = {
       id: `inv-${item.id}-${Date.now()}`,
       name: item.name,
       category: item.category,
-      quantity: (item.lowStockThreshold - item.currentStock + 1).toString(),
+      quantity: Math.max(item.lowStockThreshold - item.currentStock + 1, 1).toString(),
       unit: item.unit,
       preferredBrand: '',
       preferredStore: '',
@@ -42,7 +43,44 @@ function App() {
       completed: false,
       dateAdded: new Date().toISOString()
     };
+    // Optimistic update
     setShoppingItems(prev => [...prev, newItem]);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from('shopping_items')
+        .insert({
+          name: newItem.name,
+          category: newItem.category,
+          quantity: newItem.quantity,
+          unit: newItem.unit,
+          preferred_brand: '',
+          preferred_store: '',
+          from_inventory: true,
+          inventory_id: item.id,
+          completed: false,
+          user_id: user?.id
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      // Replace optimistic item with real DB item
+      setShoppingItems(prev => prev.map(s =>
+        s.id === newItem.id ? {
+          id: data.id, name: data.name, category: data.category,
+          quantity: data.quantity, unit: data.unit,
+          preferredBrand: data.preferred_brand || '',
+          preferredStore: data.preferred_store || '',
+          fromInventory: data.from_inventory,
+          inventoryId: data.inventory_id,
+          completed: data.completed,
+          dateAdded: data.created_at
+        } : s
+      ));
+    } catch (err) {
+      console.error('Could not save to shopping list:', err.message);
+      // Keep optimistic item on failure
+    }
   };
 
   const handleUpdateInventory = (inventoryId, quantityPurchased) => {
@@ -53,35 +91,54 @@ function App() {
     ));
   };
 
-  const handleGenerateShoppingList = () => {
-    const lowStockItems = inventoryItems.filter(item => 
-      item.currentStock <= item.lowStockThreshold && item.autoAddToShopping
+  const handleGenerateShoppingList = async () => {
+    const existingInventoryIds = shoppingItems
+      .filter(item => item.fromInventory && !item.completed)
+      .map(item => item.inventoryId);
+
+    const lowStockItems = inventoryItems.filter(item =>
+      item.currentStock <= item.lowStockThreshold &&
+      item.autoAddToShopping &&
+      !existingInventoryIds.includes(item.id)
     );
 
-    const newShoppingItems = lowStockItems.map(item => ({
-      id: `inv-${item.id}-${Date.now()}`,
+    if (lowStockItems.length === 0) return;
+
+    const newItems = lowStockItems.map(item => ({
+      id: `inv-${item.id}-${Date.now()}-${Math.random()}`,
       name: item.name,
       category: item.category,
-      quantity: (item.lowStockThreshold - item.currentStock + 1).toString(),
+      quantity: Math.max(item.lowStockThreshold - item.currentStock + 1, 1).toString(),
       unit: item.unit,
       preferredBrand: '',
       preferredStore: '',
       fromInventory: true,
       inventoryId: item.id,
+      completed: false,
       dateAdded: new Date().toISOString()
     }));
 
-    // Prevent duplicates
-    const existingInventoryIds = shoppingItems
-      .filter(item => item.fromInventory)
-      .map(item => item.inventoryId);
+    // Optimistic update
+    setShoppingItems(prev => [...prev, ...newItems]);
 
-    const uniqueNewItems = newShoppingItems.filter(item => 
-      !existingInventoryIds.includes(item.inventoryId)
-    );
-
-    if (uniqueNewItems.length > 0) {
-      setShoppingItems(prev => [...prev, ...uniqueNewItems]);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const payload = lowStockItems.map(item => ({
+        name: item.name,
+        category: item.category,
+        quantity: Math.max(item.lowStockThreshold - item.currentStock + 1, 1).toString(),
+        unit: item.unit,
+        preferred_brand: '',
+        preferred_store: '',
+        from_inventory: true,
+        inventory_id: item.id,
+        completed: false,
+        user_id: user?.id
+      }));
+      const { error } = await supabase.from('shopping_items').insert(payload);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Could not save generated shopping items:', err.message);
     }
   };
 
@@ -122,6 +179,7 @@ function App() {
           <SettingsPage 
             houseName={houseName}
             setHouseName={setHouseName}
+            tasks={tasks}
           />
         );
       default:
