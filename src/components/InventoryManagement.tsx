@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Package, AlertTriangle, Search, Filter, Edit3, Trash2, MapPin, Loader2 } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
+import { getPermissions } from '../utils/permissions';
 
-const InventoryManagement = ({ inventoryItems, setInventoryItems, onGenerateShoppingList }) => {
+const InventoryManagement = ({ inventoryItems, setInventoryItems, onGenerateShoppingList, activeUserRole = 'viewer' }) => {
+  const can = getPermissions(activeUserRole);
   const [showItemForm, setShowItemForm] = useState(false);
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -215,13 +217,15 @@ const InventoryManagement = ({ inventoryItems, setInventoryItems, onGenerateShop
               <span>Generate Shopping List ({lowStockItems.length})</span>
             </button>
           )}
-          <button
-            onClick={() => { resetForm(); setEditingItem(null); setShowItemForm(true); }}
-            className="bg-gradient-to-r from-purple-900 to-purple-800 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-purple-900/25 hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center space-x-2"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Add Item</span>
-          </button>
+          {can.canAddInventoryItem && (
+            <button
+              onClick={() => { resetForm(); setEditingItem(null); setShowItemForm(true); }}
+              className="bg-gradient-to-r from-purple-900 to-purple-800 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-purple-900/25 hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center space-x-2"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Add Item</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -303,12 +307,16 @@ const InventoryManagement = ({ inventoryItems, setInventoryItems, onGenerateShop
                       </div>
                     </div>
                     <div className="flex space-x-1 ml-4">
-                      <button onClick={() => handleEdit(item)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => setDeleteConfirmItem(item)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {can.canEditInventoryItem && (
+                        <button onClick={() => handleEdit(item)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      )}
+                      {can.canDeleteInventoryItem && (
+                        <button onClick={() => setDeleteConfirmItem(item)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
