@@ -192,15 +192,15 @@ function App() {
         return <Dashboard tasks={tasks} inventoryItems={inventoryItems} shoppingItems={shoppingItems}
           onNavigateToTab={setActiveTab} onAddToShoppingList={handleAddToShoppingList} houseName={houseName} />;
       case 'tasks':
-        return <TaskManagement tasks={tasks} setTasks={setTasks} activeUserId={performedBy()} />;
+        return <TaskManagement tasks={tasks} setTasks={setTasks} activeUserId={performedBy()} activeUserRole={activeUser?.role || 'viewer'} />;
       case 'inventory':
         return <InventoryManagement inventoryItems={inventoryItems} setInventoryItems={setInventoryItems}
-          onGenerateShoppingList={handleGenerateShoppingList} activeUserId={performedBy()} />;
+          onGenerateShoppingList={handleGenerateShoppingList} activeUserId={performedBy()} activeUserRole={activeUser?.role || 'viewer'} />;
       case 'shopping':
         return <ShoppingList inventoryItems={inventoryItems} onUpdateInventory={handleUpdateInventory}
-          shoppingItems={shoppingItems} setShoppingItems={setShoppingItems} activeUserId={performedBy()} />;
+          shoppingItems={shoppingItems} setShoppingItems={setShoppingItems} activeUserId={performedBy()} activeUserRole={activeUser?.role || 'viewer'} />;
       case 'settings':
-        return <SettingsPage houseName={houseName} setHouseName={setHouseName} tasks={tasks} />;
+        return <SettingsPage houseName={houseName} setHouseName={setHouseName} tasks={tasks} activeUserRole={activeUser?.role || 'viewer'} />;
       default:
         return <Dashboard tasks={tasks} inventoryItems={inventoryItems} shoppingItems={shoppingItems}
           onNavigateToTab={setActiveTab} onAddToShoppingList={handleAddToShoppingList} houseName={houseName} />;
