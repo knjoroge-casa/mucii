@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { Home, Users, Save } from 'lucide-react';
 import UserManagement from './UserManagement';
+import { getPermissions } from '../utils/permissions';
 
 interface SettingsPageProps {
   houseName: string;
   setHouseName: (name: string) => void;
   tasks?: any[];
+  activeUserRole?: string;
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ houseName, setHouseName, tasks = [] }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ houseName, setHouseName, tasks = [], activeUserRole = 'viewer' }) => {
+  const can = getPermissions(activeUserRole);
   const [tempHouseName, setTempHouseName] = useState(houseName);
   const [activeSection, setActiveSection] = useState('house');
   const [saved, setSaved] = useState(false);
@@ -22,7 +25,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ houseName, setHouseName, ta
 
   const sections = [
     { id: 'house', name: 'House Customization', icon: Home },
-    { id: 'users', name: 'User Management', icon: Users }
+    ...(can.canManageUsers ? [{ id: 'users', name: 'User Management', icon: Users }] : [])
   ];
 
   const renderContent = () => {
@@ -55,20 +58,22 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ houseName, setHouseName, ta
                     <p className="text-sm text-gray-500">
                       Preview: "Welcome back to {tempHouseName || 'your home'}"
                     </p>
-                    <button
-                      onClick={handleSaveHouseName}
-                      disabled={tempHouseName === houseName}
-                      className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all ${
-                        saved
-                          ? 'bg-green-600 text-white'
-                          : tempHouseName === houseName
-                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                          : 'bg-gradient-to-r from-purple-900 to-purple-800 text-white shadow-lg hover:shadow-xl'
-                      }`}
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>{saved ? 'Saved!' : 'Save Changes'}</span>
-                    </button>
+                    {can.canEditHouseName && (
+                      <button
+                        onClick={handleSaveHouseName}
+                        disabled={tempHouseName === houseName}
+                        className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all ${
+                          saved
+                            ? 'bg-green-600 text-white'
+                            : tempHouseName === houseName
+                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-purple-900 to-purple-800 text-white shadow-lg hover:shadow-xl'
+                        }`}
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>{saved ? 'Saved!' : 'Save Changes'}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
