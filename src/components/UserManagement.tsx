@@ -143,6 +143,16 @@ const UserManagement: React.FC<UserManagementProps> = ({ tasks = [], activeUserR
         setUsers(prev => prev.map(u => u.id === editingUser.id ? { ...u, ...data } : u));
       } else {
         const { data: { user: authUser } } = await supabase.auth.getUser();
+        // Get household_id fresh — state may not be populated yet
+        let householdId = ownerHouseholdId;
+        if (!householdId && authUser) {
+          const { data: ownerRow } = await supabase
+            .from('users')
+            .select('household_id')
+            .eq('id', authUser.id)
+            .single();
+          householdId = ownerRow?.household_id ?? null;
+        }
         const { data, error } = await supabase
           .from('users')
           .insert({
@@ -151,7 +161,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ tasks = [], activeUserR
             role: userForm.role,
             is_owner: false,
             hashed_pin: hashed,
-            household_id: ownerHouseholdId,
+            household_id: householdId,
             display_order: users.length,
           })
           .select()
