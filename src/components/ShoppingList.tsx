@@ -1,137 +1,206 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, ShoppingCart, Check, X, Filter, Trash2, Calendar, Package, Store, Tag, Edit3 } from 'lucide-react';
+import { Plus, ShoppingCart, Check, X, Filter, Trash2, Package, Store, Tag, Edit3, Loader2 } from 'lucide-react';
+import { supabase } from '../utils/supabaseClient';
+import { getPermissions } from '../utils/permissions';
 
-const ShoppingList = ({ inventoryItems = [], onUpdateInventory, shoppingItems: propShoppingItems = [], setShoppingItems: setPropShoppingItems }) => {
+const ShoppingList = ({ inventoryItems = [], onUpdateInventory, shoppingItems, setShoppingItems, activeUserRole = 'viewer' }) => {
+  const can = getPermissions(activeUserRole);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [newCategory, setNewCategory] = useState('');
+  const [showPurchased, setShowPurchased] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [customCategories, setCustomCategories] = useState([]);
+  const [newCategory, setNewCategory] = useState('');
 
-  const [newItem, setNewItem] = useState({ 
-    name: '', 
-    category: '', 
-    quantity: '1', 
-    unit: '', 
-    preferredBrand: '', 
-    preferredStore: '',
-    fromInventory: false,
-    inventoryId: null
+  const emptyForm = {
+    name: '', category: '', quantity: '1', unit: '',
+    preferredBrand: '', preferredStore: '', fromInventory: false, inventoryId: null
+  };
+  const [itemForm, setItemForm] = useState(emptyForm);
+
+  const defaultCategories = [
+    'Food & Pantry', 'Fresh Produce', 'Meat, Dairy & Eggs',
+    'Beverages', 'Household Supplies', 'Toiletries & Personal Care',
+    'Wine & Spirits', 'Other'
+  ];
+  const allCategories = [...defaultCategories, ...customCategories];
+  const units = [
+    'Packets', 'Boxes', 'Cans', 'Jars', 'Litres', 'Bottles',
+    'Bars', 'Rolls', 'Tubes', 'Kg', 'Bunches', 'Pieces', 'Packs'
+  ];
+
+  // Map DB row to local shape
+  const mapDbItem = (row) => ({
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    quantity: row.quantity || '1',
+    unit: row.unit,
+    preferredBrand: row.preferred_brand || '',
+    preferredStore: row.preferred_store || '',
+    fromInventory: row.from_inventory,
+    inventoryId: row.inventory_id,
+    completed: row.completed,
+    dateAdded: row.created_at
   });
 
-  // Use props for shopping items
-  const shoppingItems = propShoppingItems;
-  const setShoppingItems = setPropShoppingItems || (() => {});
-  const [purchasedItems, setPurchasedItems] = useState([]);
+  // Load shopping items from Supabase
+  useEffect(() => {
+    const loadItems = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('shopping_items')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        setShoppingItems((data || []).map(mapDbItem));
+      } catch (err) {
+        console.error('Could not load shopping list:', err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadItems();
+  }, []);
 
-  // Categories matching inventory system
-  const defaultCategories = [
-    'Food & Pantry',
-    'Fresh Produce',
-    'Meat, Dairy & Eggs',
-    'Beverages',
-    'Household Supplies',
-    'Toiletries & Personal Care',
-    'Wine & Spirits',
-    'Other'
-  ];
+  // Derived lists
+  const items = shoppingItems || [];
+  const pendingItems = items.filter(i => !i.completed);
+  const purchasedItems = items.filter(i => i.completed);
+  const uniqueCategories = [...new Set(pendingItems.map(i => i.category).filter(Boolean))];
+  const filteredPending = pendingItems.filter(i =>
+    selectedCategory === 'all' || i.category === selectedCategory
+  );
 
-  const allCategories = [...defaultCategories, ...customCategories];
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
 
-  // Units matching inventory system
-  const units = [
-    'Packets',
-    'Boxes',
-    'Cans',
-    'Jars',
-    'Litres',
-    'Bottles',
-    'Bars',
-    'Rolls',
-    'Tubes',
-    'Kg',
-    'Bunches',
-    'Pieces',
-    'Packs'
-  ];
+    const payload = {
+      name: itemForm.name,
+      category: itemForm.category,
+      quantity: itemForm.quantity,
+      unit: itemForm.unit,
+      preferred_brand: itemForm.preferredBrand,
+      preferred_store: itemForm.preferredStore,
+      from_inventory: itemForm.fromInventory,
+      inventory_id: itemForm.inventoryId || null,
+      completed: false,
+    };
 
-  // Generate shopping list from inventory low stock items
-  const generateFromInventory = () => {
-    const lowStockItems = inventoryItems.filter(item => 
-      item.currentStock <= item.lowStockThreshold && item.autoAddToShopping
-    );
-
-    const newShoppingItems = lowStockItems.map(item => ({
-      id: `inv-${item.id}-${Date.now()}`,
-      name: item.name,
-      category: item.category,
-      quantity: (item.lowStockThreshold - item.currentStock + 1).toString(),
-      unit: item.unit,
-      preferredBrand: '',
-      preferredStore: '',
-      fromInventory: true,
-      inventoryId: item.id,
-      dateAdded: new Date().toISOString()
-    }));
-
-    // Prevent duplicates - check if items from this inventory item already exist
-    const existingInventoryIds = shoppingItems
-      .filter(item => item.fromInventory)
-      .map(item => item.inventoryId);
-
-    const uniqueNewItems = newShoppingItems.filter(item => 
-      !existingInventoryIds.includes(item.inventoryId)
-    );
-
-    if (uniqueNewItems.length > 0) {
-      setShoppingItems(prev => [...prev, ...uniqueNewItems]);
+    try {
+      if (editingItem) {
+        const { data, error } = await supabase
+          .from('shopping_items')
+          .update({ ...payload, updated_at: new Date().toISOString() })
+          .eq('id', editingItem.id)
+          .select()
+          .single();
+        if (error) throw error;
+        setShoppingItems(prev => prev.map(i => i.id === editingItem.id ? mapDbItem(data) : i));
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data, error } = await supabase
+          .from('shopping_items')
+          .insert({ ...payload, user_id: user?.id })
+          .select()
+          .single();
+        if (error) throw error;
+        setShoppingItems(prev => [mapDbItem(data), ...prev]);
+      }
+    } catch (err) {
+      console.error('Could not save item:', err.message);
+      // Optimistic fallback
+      if (editingItem) {
+        setShoppingItems(prev => prev.map(i =>
+          i.id === editingItem.id ? { ...i, ...itemForm } : i
+        ));
+      } else {
+        setShoppingItems(prev => [{
+          ...itemForm, id: Date.now(), completed: false, dateAdded: new Date().toISOString()
+        }, ...prev]);
+      }
+    } finally {
+      setSaving(false);
+      setShowAddForm(false);
+      setEditingItem(null);
+      setItemForm(emptyForm);
     }
   };
 
-  // Filter shopping items
-  const filteredItems = shoppingItems.filter(item => {
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-    return matchesCategory;
-  });
+  const handleMarkPurchased = async (item) => {
+    // Optimistic update
+    setShoppingItems(prev => prev.map(i =>
+      i.id === item.id ? { ...i, completed: true } : i
+    ));
 
-  const uniqueCategories = [...new Set(shoppingItems.map(item => item.category))];
-
-  const handleAddItem = (e) => {
-    e.preventDefault();
-    
-    if (editingItem) {
-      setShoppingItems(prev => prev.map(item => 
-        item.id === editingItem.id 
-          ? { ...item, ...newItem, id: editingItem.id }
-          : item
-      ));
-      setEditingItem(null);
-    } else {
-      const item = {
-        ...newItem,
-        id: Date.now(),
-        dateAdded: new Date().toISOString()
-      };
-      setShoppingItems(prev => [...prev, item]);
+    try {
+      const { error } = await supabase
+        .from('shopping_items')
+        .update({ completed: true, updated_at: new Date().toISOString() })
+        .eq('id', item.id);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Could not mark as purchased:', err.message);
+      setShoppingItems(prev => prev.map(i => i.id === item.id ? item : i));
     }
-    
-    setNewItem({ 
-      name: '', 
-      category: '', 
-      quantity: '1', 
-      unit: '', 
-      preferredBrand: '', 
-      preferredStore: '',
-      fromInventory: false,
-      inventoryId: null
-    });
-    setShowAddForm(false);
+
+    // Update inventory stock if item came from inventory
+    if (item.fromInventory && item.inventoryId && onUpdateInventory) {
+      const qty = parseInt(item.quantity) || 1;
+      onUpdateInventory(item.inventoryId, qty);
+
+      // Also update in Supabase
+      try {
+        const invItem = inventoryItems.find(inv => inv.id === item.inventoryId);
+        if (invItem) {
+          await supabase
+            .from('inventory_items')
+            .update({
+              current_stock: invItem.currentStock + qty,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', item.inventoryId);
+        }
+      } catch (err) {
+        console.error('Could not update inventory stock:', err.message);
+      }
+    }
+  };
+
+  const handleUndoPurchased = async (item) => {
+    setShoppingItems(prev => prev.map(i =>
+      i.id === item.id ? { ...i, completed: false } : i
+    ));
+    try {
+      const { error } = await supabase
+        .from('shopping_items')
+        .update({ completed: false, updated_at: new Date().toISOString() })
+        .eq('id', item.id);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Could not undo purchase:', err.message);
+      setShoppingItems(prev => prev.map(i => i.id === item.id ? item : i));
+    }
+  };
+
+  const handleDelete = async (itemId) => {
+    setShoppingItems(prev => prev.filter(i => i.id !== itemId));
+    setDeleteConfirmItem(null);
+    try {
+      const { error } = await supabase.from('shopping_items').delete().eq('id', itemId);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Could not delete item:', err.message);
+    }
   };
 
   const handleEdit = (item) => {
-    setNewItem({
+    setItemForm({
       name: item.name,
       category: item.category,
       quantity: item.quantity,
@@ -145,46 +214,23 @@ const ShoppingList = ({ inventoryItems = [], onUpdateInventory, shoppingItems: p
     setShowAddForm(true);
   };
 
-  const handleDeleteConfirm = (itemId) => {
-    setShoppingItems(prev => prev.filter(item => item.id !== itemId));
-    setDeleteConfirmItem(null);
-  };
-
-  const handleMarkPurchased = (item) => {
-    // Move to purchased items
-    const purchasedItem = {
-      ...item,
-      purchaseDate: new Date().toISOString()
-    };
-    setPurchasedItems(prev => [...prev, purchasedItem]);
-    
-    // Remove from shopping list
-    setShoppingItems(prev => prev.filter(i => i.id !== item.id));
-    
-    // Update inventory if item came from inventory
-    if (item.fromInventory && item.inventoryId && onUpdateInventory) {
-      onUpdateInventory(item.inventoryId, parseInt(item.quantity) || 1);
-    }
-  };
-
   const addCustomCategory = () => {
     if (newCategory.trim() && !allCategories.includes(newCategory.trim())) {
       setCustomCategories(prev => [...prev, newCategory.trim()]);
-      setNewItem(prev => ({ ...prev, category: newCategory.trim() }));
+      setItemForm(prev => ({ ...prev, category: newCategory.trim() }));
       setNewCategory('');
       setShowAddCategory(false);
     }
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
+        <span className="ml-3 text-gray-600 font-medium">Loading shopping list...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -194,114 +240,111 @@ const ShoppingList = ({ inventoryItems = [], onUpdateInventory, shoppingItems: p
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-900 to-amber-600 bg-clip-text text-transparent">
             Shopping List
           </h1>
-          <p className="text-gray-600 mt-1">{shoppingItems.length} items to purchase</p>
+          <p className="text-gray-600 mt-1">
+            {pendingItems.length} {pendingItems.length === 1 ? 'item' : 'items'} to buy
+            {purchasedItems.length > 0 && ` · ${purchasedItems.length} purchased`}
+          </p>
         </div>
-        <div className="flex space-x-4">
+        {can.canAddShoppingItem && (
           <button
-            onClick={generateFromInventory}
-            className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center space-x-2"
-          >
-            <Package className="w-5 h-5" />
-            <span>Generate from Inventory</span>
-          </button>
-          <button
-            onClick={() => setShowAddForm(true)}
+            onClick={() => { setItemForm(emptyForm); setEditingItem(null); setShowAddForm(true); }}
             className="bg-gradient-to-r from-purple-900 to-purple-800 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-purple-900/25 hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center space-x-2"
           >
             <Plus className="w-5 h-5" />
             <span>Add Item</span>
           </button>
+        )}
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 border border-white/50 shadow-lg flex items-center gap-4">
+        <div className="flex items-center space-x-2">
+          <Filter className="w-4 h-4 text-gray-500" />
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="bg-white/70 border border-gray-200 rounded-xl px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="all">All Categories</option>
+            {uniqueCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+          </select>
         </div>
+        {purchasedItems.length > 0 && (
+          <button
+            onClick={() => setShowPurchased(!showPurchased)}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              showPurchased ? 'bg-green-200 text-green-800' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+            }`}
+          >
+            <Check className="w-4 h-4" />
+            <span>{showPurchased ? 'Hide' : 'Show'} Purchased ({purchasedItems.length})</span>
+          </button>
+        )}
       </div>
 
-      {/* Filter */}
-      <div className="flex items-center space-x-2">
-        <Filter className="w-4 h-4 text-gray-500" />
-        <select 
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="bg-white/70 border border-gray-200 rounded-lg px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          <option value="all">All Categories</option>
-          {uniqueCategories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Shopping List */}
+      {/* Pending Items */}
       <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-white/50 shadow-lg overflow-hidden">
-        <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200">
-          <div className="flex items-center">
-            <ShoppingCart className="w-5 h-5 text-blue-600 mr-3" />
-            <h2 className="text-lg font-semibold text-blue-900">Shopping List ({filteredItems.length} items)</h2>
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <ShoppingCart className="w-5 h-5 text-blue-600" />
+            <h2 className="text-lg font-semibold text-gray-900">
+              To Buy ({filteredPending.length})
+            </h2>
           </div>
         </div>
 
-        {filteredItems.length > 0 ? (
-          <div className="divide-y divide-gray-200">
-            {filteredItems.map((item) => (
-              <div key={item.id} className="p-6 hover:bg-gray-50/50 transition-all">
+        {filteredPending.length > 0 ? (
+          <div className="divide-y divide-gray-100">
+            {filteredPending.map((item) => (
+              <div key={item.id} className="p-5 hover:bg-gray-50/50 transition-all">
                 <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="font-semibold text-gray-900 text-lg">{item.name}</h3>
-                      <span className="inline-block px-3 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center flex-wrap gap-2 mb-1.5">
+                      <h3 className="font-semibold text-gray-900">{item.name}</h3>
+                      <span className="px-2.5 py-0.5 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
                         {item.category}
                       </span>
                       {item.fromInventory && (
-                        <span className="inline-block px-2 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full">
+                        <span className="px-2.5 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
                           From Inventory
                         </span>
                       )}
                     </div>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
-                      <div className="flex items-center space-x-2">
-                        <Package className="w-4 h-4" />
-                        <span>{item.quantity} {item.unit}</span>
-                      </div>
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                      <span className="flex items-center gap-1.5">
+                        <Package className="w-3.5 h-3.5" />
+                        {item.quantity} {item.unit}
+                      </span>
                       {item.preferredBrand && (
-                        <div className="flex items-center space-x-2">
-                          <Tag className="w-4 h-4" />
-                          <span>{item.preferredBrand}</span>
-                        </div>
+                        <span className="flex items-center gap-1.5">
+                          <Tag className="w-3.5 h-3.5" />
+                          {item.preferredBrand}
+                        </span>
                       )}
                       {item.preferredStore && (
-                        <div className="flex items-center space-x-2">
-                          <Store className="w-4 h-4" />
-                          <span>{item.preferredStore}</span>
-                        </div>
+                        <span className="flex items-center gap-1.5">
+                          <Store className="w-3.5 h-3.5" />
+                          {item.preferredStore}
+                        </span>
                       )}
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4" />
-                        <span>Added {formatDate(item.dateAdded)}</span>
-                      </div>
                     </div>
                   </div>
-                  
-                  <div className="flex space-x-2 ml-4">
-                    <button
-                      onClick={() => handleEdit(item)}
-                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                      title="Edit item"
-                    >
-                      <Plus className="w-4 h-4 rotate-45" />
-                    </button>
-                    <button
-                      onClick={() => handleMarkPurchased(item)}
-                      className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
-                      title="Mark as purchased"
-                    >
-                      <Check className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirmItem(item)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                      title="Delete item"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div className="flex space-x-1 ml-4">
+                    {can.canEditShoppingItem && (
+                      <button onClick={() => handleEdit(item)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit">
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                    )}
+                    {can.canMarkPurchased && (
+                      <button onClick={() => handleMarkPurchased(item)} className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all" title="Mark as purchased">
+                        <Check className="w-4 h-4" />
+                      </button>
+                    )}
+                    {can.canDeleteShoppingItem && (
+                      <button onClick={() => setDeleteConfirmItem(item)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Delete">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -309,64 +352,51 @@ const ShoppingList = ({ inventoryItems = [], onUpdateInventory, shoppingItems: p
           </div>
         ) : (
           <div className="p-12 text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Check className="w-8 h-8 text-green-600" />
+            <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Check className="w-7 h-7 text-green-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">Shopping list is empty</h3>
-            <p className="text-gray-500 mb-6">Add items manually or generate from low inventory stock</p>
-            <div className="flex justify-center space-x-4">
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="bg-gradient-to-r from-purple-900 to-purple-800 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
-              >
-                Add Items Manually
-              </button>
-              <button 
-                onClick={generateFromInventory}
-                className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
-              >
-                Generate from Inventory
-              </button>
-            </div>
+            <h3 className="text-lg font-semibold text-gray-700 mb-2">All done!</h3>
+            <p className="text-gray-500 mb-6">
+              {selectedCategory !== 'all' ? 'No items in this category' : 'Your shopping list is empty'}
+            </p>
+            <button
+              onClick={() => { setItemForm(emptyForm); setEditingItem(null); setShowAddForm(true); }}
+              className="bg-gradient-to-r from-purple-900 to-purple-800 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
+            >
+              Add Items
+            </button>
           </div>
         )}
       </div>
 
-      {/* Purchased Items Section */}
-      {purchasedItems.length > 0 && (
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Purchase History ({purchasedItems.length} items)</h2>
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-white/50 shadow-lg overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-green-50 to-green-100 border-b border-green-200">
-              <div className="flex items-center">
-                <Check className="w-5 h-5 text-green-600 mr-3" />
-                <h3 className="text-lg font-semibold text-green-900">Recently Purchased</h3>
-              </div>
-            </div>
-            <div className="divide-y divide-gray-200">
-              {purchasedItems.slice().reverse().map((item) => (
-                <div key={`purchased-${item.id}`} className="p-4 hover:bg-gray-50/50 transition-all">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900 line-through opacity-75">
-                        {item.name}
-                      </h4>
-                      <div className="flex items-center space-x-4 mt-1 text-sm text-gray-500">
-                        <span>{item.quantity} {item.unit}</span>
-                        <span>•</span>
-                        <span>Purchased {formatDate(item.purchaseDate)}</span>
-                        {item.preferredStore && (
-                          <>
-                            <span>•</span>
-                            <span>at {item.preferredStore}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
+      {/* Purchased Items */}
+      {showPurchased && purchasedItems.length > 0 && (
+        <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-white/50 shadow-lg overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center space-x-2">
+            <Check className="w-5 h-5 text-green-600" />
+            <h2 className="text-lg font-semibold text-gray-900">Purchased ({purchasedItems.length})</h2>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {purchasedItems.map((item) => (
+              <div key={item.id} className="p-5 hover:bg-gray-50/50 transition-all">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-400 line-through">{item.name}</h3>
+                    <p className="text-sm text-gray-400 mt-0.5">{item.quantity} {item.unit}
+                      {item.preferredStore && ` · ${item.preferredStore}`}
+                    </p>
+                  </div>
+                  <div className="flex space-x-1 ml-4">
+                    <button onClick={() => handleUndoPurchased(item)} className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all" title="Move back to list">
+                      <X className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setDeleteConfirmItem(item)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Delete">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -374,72 +404,43 @@ const ShoppingList = ({ inventoryItems = [], onUpdateInventory, shoppingItems: p
       {/* Delete Confirmation Modal */}
       {deleteConfirmItem && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
             <div className="text-center">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Trash2 className="w-8 h-8 text-red-600" />
               </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Delete Item</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Remove Item</h2>
               <p className="text-gray-600 mb-6">
-                Are you sure you want to delete "{deleteConfirmItem.name}" from your shopping list?
+                Remove <span className="font-semibold">"{deleteConfirmItem.name}"</span> from your shopping list?
               </p>
               <div className="flex justify-center space-x-4">
-                <button
-                  onClick={() => setDeleteConfirmItem(null)}
-                  className="px-6 py-3 border border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleDeleteConfirm(deleteConfirmItem.id)}
-                  className="bg-red-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-red-700 transition-all"
-                >
-                  Delete
-                </button>
+                <button onClick={() => setDeleteConfirmItem(null)} className="px-6 py-3 border border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all">Cancel</button>
+                <button onClick={() => handleDelete(deleteConfirmItem.id)} className="bg-red-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-red-700 transition-all">Remove</button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Add Item Modal */}
+      {/* Add/Edit Item Modal */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-900">
-                {editingItem ? 'Edit Shopping Item' : 'Add Shopping Item'}
+                {editingItem ? 'Edit Item' : 'Add to Shopping List'}
               </h2>
-              <button
-                onClick={() => {
-                  setShowAddForm(false);
-                  setEditingItem(null);
-                  setNewItem({ 
-                    name: '', 
-                    category: '', 
-                    quantity: '1', 
-                    unit: '', 
-                    preferredBrand: '', 
-                    preferredStore: '',
-                    fromInventory: false,
-                    inventoryId: null
-                  });
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ×
-              </button>
+              <button onClick={() => { setShowAddForm(false); setEditingItem(null); setItemForm(emptyForm); }} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
             </div>
 
-            <form onSubmit={handleAddItem} className="space-y-6">
-              {/* Item Name */}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Name */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Item Name *</label>
                 <input
-                  type="text"
-                  required
-                  value={newItem.name}
-                  onChange={(e) => setNewItem(prev => ({ ...prev, name: e.target.value }))}
+                  type="text" required
+                  value={itemForm.name}
+                  onChange={(e) => setItemForm(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
                   placeholder="e.g., Milk, Bread, Detergent"
                 />
@@ -451,107 +452,79 @@ const ShoppingList = ({ inventoryItems = [], onUpdateInventory, shoppingItems: p
                 <div className="flex space-x-2">
                   <select
                     required
-                    value={newItem.category}
-                    onChange={(e) => setNewItem(prev => ({ ...prev, category: e.target.value }))}
+                    value={itemForm.category}
+                    onChange={(e) => setItemForm(prev => ({ ...prev, category: e.target.value }))}
                     className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
                     <option value="">Select category</option>
-                    {allCategories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
+                    {allCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                   </select>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddCategory(true)}
-                    className="px-4 py-3 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-all"
-                    title="Add custom category"
-                  >
+                  <button type="button" onClick={() => setShowAddCategory(true)} className="px-4 py-3 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-all">
                     <Plus className="w-5 h-5" />
                   </button>
                 </div>
               </div>
 
-              {/* Quantity and Unit */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Quantity + Unit */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Quantity *</label>
                   <input
-                    type="number"
-                    required
-                    min="1"
-                    value={newItem.quantity}
-                    onChange={(e) => setNewItem(prev => ({ ...prev, quantity: e.target.value }))}
+                    type="number" required min="1"
+                    value={itemForm.quantity}
+                    onChange={(e) => setItemForm(prev => ({ ...prev, quantity: e.target.value }))}
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    placeholder="1"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Unit *</label>
                   <select
                     required
-                    value={newItem.unit}
-                    onChange={(e) => setNewItem(prev => ({ ...prev, unit: e.target.value }))}
+                    value={itemForm.unit}
+                    onChange={(e) => setItemForm(prev => ({ ...prev, unit: e.target.value }))}
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
                     <option value="">Select unit</option>
-                    {units.map(unit => (
-                      <option key={unit} value={unit}>{unit}</option>
-                    ))}
+                    {units.map(unit => <option key={unit} value={unit}>{unit}</option>)}
                   </select>
                 </div>
               </div>
 
-              {/* Preferred Brand */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Preferred Brand</label>
-                <input
-                  type="text"
-                  value={newItem.preferredBrand}
-                  onChange={(e) => setNewItem(prev => ({ ...prev, preferredBrand: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  placeholder="e.g., Heinz, Coca-Cola, Tide"
-                />
+              {/* Brand + Store */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Preferred Brand</label>
+                  <input
+                    type="text"
+                    value={itemForm.preferredBrand}
+                    onChange={(e) => setItemForm(prev => ({ ...prev, preferredBrand: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="e.g., Heinz"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Preferred Store</label>
+                  <input
+                    type="text"
+                    value={itemForm.preferredStore}
+                    onChange={(e) => setItemForm(prev => ({ ...prev, preferredStore: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="e.g., Naivas"
+                  />
+                </div>
               </div>
 
-              {/* Preferred Store */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Preferred Store</label>
-                <input
-                  type="text"
-                  value={newItem.preferredStore}
-                  onChange={(e) => setNewItem(prev => ({ ...prev, preferredStore: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  placeholder="e.g., Walmart, Target, Local grocery store"
-                />
-              </div>
-
-              {/* Action Buttons */}
+              {/* Actions */}
               <div className="flex justify-end space-x-4 pt-6 border-t">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddForm(false);
-                    setEditingItem(null);
-                    setNewItem({ 
-                      name: '', 
-                      category: '', 
-                      quantity: '1', 
-                      unit: '', 
-                      preferredBrand: '', 
-                      preferredStore: '',
-                      fromInventory: false,
-                      inventoryId: null
-                    });
-                  }}
-                  className="px-6 py-3 border border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all"
-                >
+                <button type="button" onClick={() => { setShowAddForm(false); setEditingItem(null); setItemForm(emptyForm); }} className="px-6 py-3 border border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all">
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  className="bg-gradient-to-r from-purple-900 to-purple-800 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
+                  type="submit" disabled={saving}
+                  className="bg-gradient-to-r from-purple-900 to-purple-800 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-60 flex items-center space-x-2"
                 >
-                  {editingItem ? 'Update Item' : 'Add to List'}
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{saving ? 'Saving...' : editingItem ? 'Update Item' : 'Add to List'}</span>
                 </button>
               </div>
             </form>
@@ -561,52 +534,24 @@ const ShoppingList = ({ inventoryItems = [], onUpdateInventory, shoppingItems: p
 
       {/* Add Custom Category Modal */}
       {showAddCategory && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-60 p-4">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-900">Add Custom Category</h2>
-              <button
-                onClick={() => {
-                  setShowAddCategory(false);
-                  setNewCategory('');
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ×
-              </button>
+              <button onClick={() => { setShowAddCategory(false); setNewCategory(''); }} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
             </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Category Name</label>
-                <input
-                  type="text"
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  placeholder="Enter new category name"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  onKeyPress={(e) => e.key === 'Enter' && addCustomCategory()}
-                />
-              </div>
-
-              <div className="flex justify-end space-x-4 pt-4">
-                <button
-                  onClick={() => {
-                    setShowAddCategory(false);
-                    setNewCategory('');
-                  }}
-                  className="px-6 py-3 border border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={addCustomCategory}
-                  disabled={!newCategory.trim()}
-                  className="bg-gradient-to-r from-purple-900 to-purple-800 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Add Category
-                </button>
-              </div>
+            <input
+              type="text" value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addCustomCategory()}
+              placeholder="Enter category name"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4"
+            />
+            <div className="flex justify-end space-x-4">
+              <button onClick={() => { setShowAddCategory(false); setNewCategory(''); }} className="px-6 py-3 border border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all">Cancel</button>
+              <button onClick={addCustomCategory} disabled={!newCategory.trim()} className="bg-gradient-to-r from-purple-900 to-purple-800 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50">
+                Add Category
+              </button>
             </div>
           </div>
         </div>
