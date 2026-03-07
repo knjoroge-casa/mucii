@@ -158,11 +158,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ tasks = [], activeUserR
           .insert({
             id: crypto.randomUUID(),
             full_name: userForm.full_name,
+            email: null,
             role: userForm.role,
             is_owner: false,
             hashed_pin: hashed,
             household_id: householdId,
             display_order: users.length,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           })
           .select()
           .single();
@@ -175,7 +178,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ tasks = [], activeUserR
       setUserForm(emptyForm);
     } catch (err: any) {
       console.error('Could not save user:', err.message);
-      setFormPinError('Could not save. Please try again.');
+      setFormPinError(`Could not save: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -351,7 +354,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ tasks = [], activeUserR
       {/* PIN Reset Modal */}
       {pinResetUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-900">
                 {pinResetUser.hashed_pin ? 'Reset PIN' : 'Set PIN'} — {pinResetUser.full_name}
@@ -406,7 +409,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ tasks = [], activeUserR
       {/* Delete Confirmation Modal */}
       {deleteConfirmUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl overflow-y-auto max-h-[90vh]">
             <div className="text-center">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Trash2 className="w-8 h-8 text-red-600" />
@@ -431,7 +434,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ tasks = [], activeUserR
       {/* Add / Edit Member Modal */}
       {showUserForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-900">
                 {editingUser ? 'Edit Member' : 'Add Member'}
