@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Calendar, User, MapPin, Edit3, Check, X, Trash2, Loader2 } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
+import { getPermissions } from '../utils/permissions';
 
-const TaskManagement = ({ tasks, setTasks }) => {
+const TaskManagement = ({ tasks, setTasks, activeUserRole = 'viewer' }) => {
+  const can = getPermissions(activeUserRole);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
@@ -300,13 +302,15 @@ const TaskManagement = ({ tasks, setTasks }) => {
           </h1>
           <p className="text-gray-600 mt-1">Organise and track your household tasks</p>
         </div>
-        <button
-          onClick={() => { resetForm(); setEditingTask(null); setShowTaskForm(true); }}
-          className="bg-gradient-to-r from-purple-900 to-purple-800 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-purple-900/25 hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center space-x-2"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Add Task</span>
-        </button>
+        {can.canAddTask && (
+          <button
+            onClick={() => { resetForm(); setEditingTask(null); setShowTaskForm(true); }}
+            className="bg-gradient-to-r from-purple-900 to-purple-800 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-purple-900/25 hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center space-x-2"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Add Task</span>
+          </button>
+        )}
       </div>
 
       {/* Filter Section */}
@@ -388,15 +392,21 @@ const TaskManagement = ({ tasks, setTasks }) => {
                     )}
                   </div>
                   <div className="flex space-x-1 ml-2">
-                    <button onClick={() => handleEdit(task)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handleComplete(task)} className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all">
-                      <Check className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setDeleteConfirmTask(task)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {can.canEditTask && (
+                      <button onClick={() => handleEdit(task)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                    )}
+                    {can.canCompleteTask && (
+                      <button onClick={() => handleComplete(task)} className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all">
+                        <Check className="w-4 h-4" />
+                      </button>
+                    )}
+                    {can.canDeleteTask && (
+                      <button onClick={() => setDeleteConfirmTask(task)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -473,14 +483,16 @@ const TaskManagement = ({ tasks, setTasks }) => {
                       </div>
                     </div>
                     <div className="flex space-x-2 ml-2">
-                      <button
-                        onClick={() => handleComplete(task)}
-                        className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
-                        title="Mark as incomplete"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                      <button
+                      {can.canCompleteTask && (
+                        <button
+                          onClick={() => handleComplete(task)}
+                          className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
+                          title="Mark as incomplete"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                      {can.canDeleteTask && <button
                         onClick={() => setDeleteConfirmTask(task)}
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                       >
