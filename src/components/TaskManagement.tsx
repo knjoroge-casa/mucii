@@ -492,12 +492,14 @@ const TaskManagement = ({ tasks, setTasks, activeUserRole = 'viewer' }) => {
                           <X className="w-4 h-4" />
                         </button>
                       )}
-                      {can.canDeleteTask && <button
-                        onClick={() => setDeleteConfirmTask(task)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {can.canDeleteTask && (
+                        <button
+                          onClick={() => setDeleteConfirmTask(task)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
