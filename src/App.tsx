@@ -1,22 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { Home, CheckSquare, Package, ShoppingCart, Settings } from 'lucide-react';
+import { Home, CheckSquare, Package, ShoppingCart, Settings, Users } from 'lucide-react';
 import { supabase } from './utils/supabaseClient';
 import AuthPage from './components/AuthPage';
 import HouseholdSetup from './components/HouseholdSetup';
+import PinSelectionScreen from './components/PinSelectionScreen';
 import Dashboard from './components/Dashboard';
 import TaskManagement from './components/TaskManagement';
 import InventoryManagement from './components/InventoryManagement';
 import ShoppingList from './components/ShoppingList';
 import SettingsPage from './components/SettingsPage';
-import PinSelectionScreen from './components/PinSelectionScreen';
 
 type AppScreen = 'loading' | 'auth' | 'setup' | 'pin' | 'app';
-interface OwnerUser { id: string; email: string; full_name: string; }
+
+interface OwnerUser {
+  id: string;
+  email: string;
+  full_name: string;
+}
+
+export interface ActiveUser {
+  id: string;
+  full_name: string;
+  role: string;
+  is_owner: boolean;
+}
 
 function App() {
   const [screen, setScreen] = useState<AppScreen>('loading');
   const [ownerUser, setOwnerUser] = useState<OwnerUser | null>(null);
-  const [activeUser, setActiveUser] = useState<{id:string; full_name:string; role:string; is_owner:boolean} | null>(null);
+  const [activeUser, setActiveUser] = useState<ActiveUser | null>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [tasks, setTasks] = useState([]);
   const [inventoryItems, setInventoryItems] = useState([]);
@@ -47,6 +59,7 @@ function App() {
         await handleSessionUser(session.user);
       } else if (event === 'SIGNED_OUT') {
         setOwnerUser(null);
+        setActiveUser(null);
         setScreen('auth');
       }
     });
@@ -81,6 +94,27 @@ function App() {
   const handleAuthSuccess = () => {};
   const handleSetupComplete = (name: string) => { setHouseName(name); setScreen('pin'); };
 
+  const handleUserSelected = (user: ActiveUser) => {
+    setActiveUser(user);
+    setActiveTab('dashboard');
+    setScreen('app');
+  };
+
+  const handleSwitchUser = () => {
+    setActiveUser(null);
+    setScreen('pin');
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setActiveUser(null);
+    setOwnerUser(null);
+    setScreen('auth');
+  };
+
+  // performed_by helper — uses active PIN user's ID
+  const performedBy = () => activeUser?.id ?? ownerUser?.id ?? null;
+
   const handleAddToShoppingList = async (item) => {
     const alreadyAdded = shoppingItems.some(s => s.fromInventory && s.inventoryId === item.id && !s.completed);
     if (alreadyAdded) return;
@@ -98,7 +132,8 @@ function App() {
       const { data, error } = await supabase.from('shopping_items').insert({
         name: newItem.name, category: newItem.category, quantity: newItem.quantity,
         unit: newItem.unit, preferred_brand: '', preferred_store: '',
-        from_inventory: true, inventory_id: item.id, completed: false, user_id: user?.id
+        from_inventory: true, inventory_id: item.id, completed: false,
+        user_id: user?.id, performed_by: performedBy()
       }).select().single();
       if (error) throw error;
       setShoppingItems(prev => prev.map(s => s.id === newItem.id ? {
@@ -141,7 +176,8 @@ function App() {
         name: item.name, category: item.category,
         quantity: Math.max(item.lowStockThreshold - item.currentStock + 1, 1).toString(),
         unit: item.unit, preferred_brand: '', preferred_store: '',
-        from_inventory: true, inventory_id: item.id, completed: false, user_id: user?.id
+        from_inventory: true, inventory_id: item.id, completed: false,
+        user_id: user?.id, performed_by: performedBy()
       }));
       const { error } = await supabase.from('shopping_items').insert(payload);
       if (error) throw error;
@@ -156,13 +192,13 @@ function App() {
         return <Dashboard tasks={tasks} inventoryItems={inventoryItems} shoppingItems={shoppingItems}
           onNavigateToTab={setActiveTab} onAddToShoppingList={handleAddToShoppingList} houseName={houseName} />;
       case 'tasks':
-        return <TaskManagement tasks={tasks} setTasks={setTasks} />;
+        return <TaskManagement tasks={tasks} setTasks={setTasks} activeUserId={performedBy()} />;
       case 'inventory':
         return <InventoryManagement inventoryItems={inventoryItems} setInventoryItems={setInventoryItems}
-          onGenerateShoppingList={handleGenerateShoppingList} />;
+          onGenerateShoppingList={handleGenerateShoppingList} activeUserId={performedBy()} />;
       case 'shopping':
         return <ShoppingList inventoryItems={inventoryItems} onUpdateInventory={handleUpdateInventory}
-          shoppingItems={shoppingItems} setShoppingItems={setShoppingItems} />;
+          shoppingItems={shoppingItems} setShoppingItems={setShoppingItems} activeUserId={performedBy()} />;
       case 'settings':
         return <SettingsPage houseName={houseName} setHouseName={setHouseName} tasks={tasks} />;
       default:
@@ -170,6 +206,8 @@ function App() {
           onNavigateToTab={setActiveTab} onAddToShoppingList={handleAddToShoppingList} houseName={houseName} />;
     }
   };
+
+  // ── Screen routing ──────────────────────────────────────────
 
   if (screen === 'loading') {
     return (
@@ -189,25 +227,25 @@ function App() {
   if (screen === 'setup' && ownerUser) {
     return <HouseholdSetup userId={ownerUser.id} userFullName={ownerUser.full_name} onSetupComplete={handleSetupComplete} />;
   }
-if (screen === 'setup' && ownerUser) {
-  return <HouseholdSetup userId={ownerUser.id} userFullName={ownerUser.full_name} onSetupComplete={handleSetupComplete} />;
-}
 
-// ← ADD THIS BLOCK RIGHT HERE
-if (screen === 'pin') {
-  return (
-    <PinSelectionScreen
-      houseName={houseName}
-      onUserSelected={(user) => { setActiveUser(user); setScreen('app'); }}
-      onSignOut={async () => { await supabase.auth.signOut(); }}
-    />
-  );
-}
+  if (screen === 'pin') {
+    return (
+      <PinSelectionScreen
+        houseName={houseName}
+        onUserSelected={handleUserSelected}
+        onSignOut={handleSignOut}
+      />
+    );
+  }
+
+  // ── Main App ────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-amber-50">
       <header className="bg-white/80 backdrop-blur-sm border-b border-white/50 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
+
+            {/* Logo */}
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-gradient-to-br from-purple-900 to-amber-600 rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-lg">M</span>
@@ -217,6 +255,8 @@ if (screen === 'pin') {
                 <p className="text-xs text-gray-600">Home, simplified</p>
               </div>
             </div>
+
+            {/* Nav */}
             <nav className="flex space-x-1">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
@@ -234,6 +274,27 @@ if (screen === 'pin') {
                 );
               })}
             </nav>
+
+            {/* Active user + Switch User */}
+            {activeUser && (
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2 bg-white/70 border border-gray-200 rounded-full px-3 py-1.5">
+                  <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                    {activeUser.full_name.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">{activeUser.full_name.split(' ')[0]}</span>
+                  <span className="text-xs text-gray-400 capitalize">{activeUser.role}</span>
+                </div>
+                <button
+                  onClick={handleSwitchUser}
+                  className="flex items-center space-x-1.5 text-sm text-gray-500 hover:text-purple-900 transition-colors px-3 py-1.5 rounded-full hover:bg-purple-50"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Switch</span>
+                </button>
+              </div>
+            )}
+
           </div>
         </div>
       </header>
