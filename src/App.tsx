@@ -6,7 +6,7 @@ import HouseholdSetup from './components/HouseholdSetup';
 import HomeSelectionScreen, { Home as HomeType } from './components/HomeSelectionScreen';
 import PinSelectionScreen from './components/PinSelectionScreen';
 import Dashboard from './components/Dashboard';
-import TaskManagement from './components/TaskManagement';
+import TaskManagement from './components/TaskManagement';z
 import InventoryManagement from './components/InventoryManagement';
 import ShoppingList from './components/ShoppingList';
 import SettingsPage from './components/SettingsPage';
@@ -240,7 +240,7 @@ function App() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-amber-50 flex items-center justify-center">
         <div className="text-center">
-          <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-14 w-auto mx-auto mb-4" />
+          <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-18 w-auto mx-auto mb-4" />
           <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto" />
         </div>
       </div>
