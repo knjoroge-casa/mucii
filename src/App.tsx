@@ -240,9 +240,7 @@ function App() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-amber-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-14 h-14 bg-gradient-to-br from-purple-900 to-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-2xl">M</span>
-          </div>
+          <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-14 w-auto mx-auto mb-4" />
           <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto" />
         </div>
       </div>
@@ -279,13 +277,7 @@ function App() {
 
             {/* Logo */}
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-900 to-amber-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-lg">M</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-purple-900 to-amber-600 bg-clip-text text-transparent">Mûcií</h1>
-                <p className="text-xs text-gray-600">Home, simplified</p>
-              </div>
+              <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-10 w-auto" />
             </div>
 
             {/* Nav */}
