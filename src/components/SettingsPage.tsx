@@ -8,17 +8,21 @@ interface SettingsPageProps {
   setHouseName: (name: string) => void;
   tasks?: any[];
   activeUserRole?: string;
+  activeHomeId?: string;
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ houseName, setHouseName, tasks = [], activeUserRole = 'viewer' }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ houseName, setHouseName, tasks = [], activeUserRole = 'viewer', activeHomeId }) => {
   const can = getPermissions(activeUserRole);
   const [tempHouseName, setTempHouseName] = useState(houseName);
   const [activeSection, setActiveSection] = useState('house');
   const [saved, setSaved] = useState(false);
 
-  const handleSaveHouseName = () => {
+  const handleSaveHouseName = async () => {
     setHouseName(tempHouseName);
-    localStorage.setItem('houseName', tempHouseName);
+    if (activeHomeId) {
+      const { supabase } = await import('../utils/supabaseClient');
+      await supabase.from('homes').update({ name: tempHouseName }).eq('id', activeHomeId);
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -82,7 +86,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ houseName, setHouseName, ta
         );
       
       case 'users':
-        return <UserManagement tasks={tasks} />;
+        return <UserManagement tasks={tasks} activeUserRole={activeUserRole} activeHomeId={activeHomeId} />;
       
       default:
         return null;
