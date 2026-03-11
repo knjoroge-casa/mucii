@@ -20,6 +20,7 @@ export interface ActiveUser {
 
 interface PinSelectionScreenProps {
   houseName: string;
+  homeId: string;
   onUserSelected: (user: ActiveUser) => void;
   onSignOut: () => void;
 }
@@ -46,7 +47,7 @@ async function hashPin(pin: string): Promise<string> {
 }
 
 const PinSelectionScreen: React.FC<PinSelectionScreenProps> = ({
-  houseName, onUserSelected, onSignOut
+  houseName, homeId, onUserSelected, onSignOut
 }) => {
   const [members, setMembers] = useState<HouseholdMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,12 +60,17 @@ const PinSelectionScreen: React.FC<PinSelectionScreenProps> = ({
     const loadMembers = async () => {
       try {
         const { data, error } = await supabase
-          .from('users')
-          .select('id, full_name, role, is_owner, display_order, hashed_pin')
-          .order('display_order', { ascending: true })
-          .order('full_name', { ascending: true });
+          .from('home_members')
+          .select('display_order, users(id, full_name, role, is_owner, hashed_pin)')
+          .eq('home_id', homeId)
+          .order('display_order', { ascending: true });
+        // Flatten the join result
+        const flatData = (data || [])
+          .map((row: any) => ({ ...row.users, display_order: row.display_order }))
+          .filter(Boolean)
+          .sort((a: any, b: any) => a.full_name.localeCompare(b.full_name));
         if (error) throw error;
-        setMembers(data || []);
+        setMembers(flatData);
       } catch (err: any) {
         console.error('Could not load members:', err.message);
       } finally {
