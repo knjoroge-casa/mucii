@@ -94,11 +94,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
         {/* Branding on image */}
         <div className="relative z-10 flex flex-col justify-end p-12 text-white">
           <div className="mb-2">
-            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-4">
-              <span className="text-white font-bold text-xl">M</span>
-            </div>
-            <h1 className="text-4xl font-bold mb-2">Mûcií</h1>
-            <p className="text-white/80 text-lg">Home, simplified.</p>
+            <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-10 w-auto" />
           </div>
         </div>
       </div>
