@@ -279,7 +279,7 @@ function App() {
 
             {/* Logo */}
             <div className="flex items-center space-x-3">
-              <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-14 w-auto" />
+              <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-15 w-auto" />
             </div>
 
             {/* Nav */}
