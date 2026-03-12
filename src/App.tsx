@@ -333,14 +333,7 @@ function App() {
                   </button>
                 )}
     {/* Switch home — only shown when owner */}
-    {activeUser.is_owner && (
-      <button onClick={handleSwitchHome}
-        className="flex items-center space-x-1.5 text-sm text-gray-500 hover:text-purple-900 transition-colors px-3 py-1.5 rounded-full hover:bg-purple-50"
-        title={`Switch home (${activeHome?.name})`}>
-        <Home className="w-4 h-4" />
-        <span className="hidden sm:inline">{activeHome?.name}</span>
-      </button>
-    )}
+    
   </div>
 )}
 
