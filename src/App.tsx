@@ -126,7 +126,6 @@ function App() {
   };
 
   const handleSwitchHome = () => {
-    setActiveUser(null);
     setActiveHome(null);
     setScreen('home_select');
   };
@@ -255,8 +254,13 @@ function App() {
     return <HouseholdSetup userId={ownerUser.id} userFullName={ownerUser.full_name} onSetupComplete={handleSetupComplete} />;
   }
 
-  if (screen === 'home_select') {
-    return <HomeSelectionScreen onHomeSelected={handleHomeSelected} onSignOut={handleSignOut} />;
+ if (screen === 'home_select') {
+    return <HomeSelectionScreen
+      onHomeSelected={handleHomeSelected}
+      onSignOut={handleSignOut}
+      activeUserId={activeUser?.id}
+      isOwner={!activeUser || activeUser.is_owner}
+    />;
   }
 
   if (screen === 'pin' && activeHome) {
@@ -312,13 +316,22 @@ function App() {
       <span className="text-sm font-medium text-gray-700">{activeUser.full_name.split(' ')[0]}</span>
       <span className="text-xs text-gray-400 capitalize">{activeUser.role}</span>
     </div>
-    {/* Switch user */}
-    <button onClick={handleSwitchUser}
-      className="flex items-center space-x-1.5 text-sm text-gray-500 hover:text-purple-900 transition-colors px-3 py-1.5 rounded-full hover:bg-purple-50"
-      title="Switch user">
-      <Users className="w-4 h-4" />
-      <span>Switch</span>
-    </button>
+   {/* Switch user */}
+                <button onClick={handleSwitchUser}
+                  className="flex items-center space-x-1.5 text-sm text-gray-500 hover:text-purple-900 transition-colors px-3 py-1.5 rounded-full hover:bg-purple-50"
+                  title="Switch user">
+                  <Users className="w-4 h-4" />
+                  <span>Switch</span>
+                </button>
+                {/* Switch home — owner and admin only */}
+                {(activeUser.is_owner || activeUser.role === 'admin') && (
+                  <button onClick={handleSwitchHome}
+                    className="flex items-center space-x-1.5 text-sm text-gray-500 hover:text-purple-900 transition-colors px-3 py-1.5 rounded-full hover:bg-purple-50"
+                    title="Switch home">
+                    <Home className="w-4 h-4" />
+                    <span className="hidden sm:inline">{activeHome?.name}</span>
+                  </button>
+                )}
     {/* Switch home — only shown when owner */}
     {activeUser.is_owner && (
       <button onClick={handleSwitchHome}
