@@ -10,9 +10,11 @@ export interface Home {
 interface HomeSelectionScreenProps {
   onHomeSelected: (home: Home) => void;
   onSignOut: () => void;
+  activeUserId?: string;
+  isOwner?: boolean;
 }
 
-const HomeSelectionScreen: React.FC<HomeSelectionScreenProps> = ({ onHomeSelected, onSignOut }) => {
+const HomeSelectionScreen: React.FC<HomeSelectionScreenProps> = ({ onHomeSelected, onSignOut, activeUserId, isOwner = true }) => {
   const [homes, setHomes] = useState<Home[]>([]);
   const [loading, setLoading] = useState(true);
   const [newHomeName, setNewHomeName] = useState('');
@@ -23,12 +25,23 @@ const HomeSelectionScreen: React.FC<HomeSelectionScreenProps> = ({ onHomeSelecte
   useEffect(() => {
     const load = async () => {
       try {
-        const { data, error } = await supabase
-          .from('homes')
-          .select('id, name')
-          .order('created_at', { ascending: true });
-        if (error) throw error;
-        const list = data || [];
+        let list: Home[] = [];
+        if (isOwner) {
+          const { data, error } = await supabase
+            .from('homes')
+            .select('id, name')
+            .order('created_at', { ascending: true });
+          if (error) throw error;
+          list = data || [];
+        } else {
+          // Admin — fetch only homes they're a member of
+          const { data, error } = await supabase
+            .from('home_members')
+            .select('homes(id, name)')
+            .eq('user_id', activeUserId);
+          if (error) throw error;
+          list = (data || []).map((row: any) => row.homes).filter(Boolean);
+        }
         setHomes(list);
         // Single home — skip selection screen entirely
         if (list.length === 1) {
@@ -125,7 +138,7 @@ const HomeSelectionScreen: React.FC<HomeSelectionScreenProps> = ({ onHomeSelecte
             </button>
           ))}
 
-          {!showAddForm ? (
+          {isOwner && !showAddForm ? (
             <button onClick={() => setShowAddForm(true)}
               className="w-full max-w-[180px] bg-white/40 backdrop-blur-sm rounded-2xl p-6 border-2 border-dashed border-purple-200 hover:border-purple-400 hover:bg-white/60 transition-all duration-200 text-center">
               <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-purple-50">
@@ -133,7 +146,7 @@ const HomeSelectionScreen: React.FC<HomeSelectionScreenProps> = ({ onHomeSelecte
               </div>
               <h3 className="font-medium text-purple-400 text-sm">Add a home</h3>
             </button>
-          ) : (
+          ) : isOwner ? (
             <div className="w-full max-w-[180px] bg-white rounded-2xl p-4 border border-purple-200 shadow-lg">
               <input
                 type="text"
