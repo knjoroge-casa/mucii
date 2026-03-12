@@ -302,28 +302,34 @@ function App() {
             </nav>
 
             {/* Active user + controls */}
-            {activeUser && (
-              <div className="flex items-center space-x-2">
-                {/* Home name */}
-                <span className="text-sm text-gray-400 hidden sm:block">{activeHome?.name}</span>
-                <span className="text-gray-200 hidden sm:block">·</span>
-                {/* User pill */}
-                <div className="flex items-center space-x-2 bg-white/70 border border-gray-200 rounded-full px-3 py-1.5">
-                  <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    {activeUser.full_name.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="text-sm font-medium text-gray-700">{activeUser.full_name.split(' ')[0]}</span>
-                  <span className="text-xs text-gray-400 capitalize">{activeUser.role}</span>
-                </div>
-                {/* Switch user */}
-                <button onClick={handleSwitchUser}
-                  className="flex items-center space-x-1.5 text-sm text-gray-500 hover:text-purple-900 transition-colors px-3 py-1.5 rounded-full hover:bg-purple-50"
-                  title="Switch user">
-                  <Users className="w-4 h-4" />
-                  <span>Switch</span>
-                </button>
-              </div>
-            )}
+{activeUser && (
+  <div className="flex items-center space-x-2">
+    {/* User pill */}
+    <div className="flex items-center space-x-2 bg-white/70 border border-gray-200 rounded-full px-3 py-1.5">
+      <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+        {activeUser.full_name.charAt(0).toUpperCase()}
+      </div>
+      <span className="text-sm font-medium text-gray-700">{activeUser.full_name.split(' ')[0]}</span>
+      <span className="text-xs text-gray-400 capitalize">{activeUser.role}</span>
+    </div>
+    {/* Switch user */}
+    <button onClick={handleSwitchUser}
+      className="flex items-center space-x-1.5 text-sm text-gray-500 hover:text-purple-900 transition-colors px-3 py-1.5 rounded-full hover:bg-purple-50"
+      title="Switch user">
+      <Users className="w-4 h-4" />
+      <span>Switch</span>
+    </button>
+    {/* Switch home — only shown when owner */}
+    {activeUser.is_owner && (
+      <button onClick={handleSwitchHome}
+        className="flex items-center space-x-1.5 text-sm text-gray-500 hover:text-purple-900 transition-colors px-3 py-1.5 rounded-full hover:bg-purple-50"
+        title={`Switch home (${activeHome?.name})`}>
+        <Home className="w-4 h-4" />
+        <span className="hidden sm:inline">{activeHome?.name}</span>
+      </button>
+    )}
+  </div>
+)}
 
           </div>
         </div>
