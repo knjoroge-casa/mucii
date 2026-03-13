@@ -103,7 +103,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
      <div className="w-full lg:w-1/2 flex flex-col p-8 bg-gradient-to-br from-purple-50 via-white to-amber-50">
         {/* Logo top center */}
         <div className="flex justify-center pt-4 pb-8">
-          <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-19 w-auto" />
+          <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-16 w-auto" />
         </div>
         <div className="w-full max-w-md mx-auto flex-1 flex flex-col justify-center">
 
