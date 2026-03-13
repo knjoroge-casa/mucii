@@ -104,7 +104,7 @@ const HomeSelectionScreen: React.FC<HomeSelectionScreenProps> = ({
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-amber-50 flex items-center justify-center">
         <div className="text-center">
-          <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-14 w-auto mx-auto mb-4" />
+          <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-18 w-auto mx-auto mb-4" />
           <Loader2 className="w-6 h-6 text-purple-600 animate-spin mx-auto" />
         </div>
       </div>
