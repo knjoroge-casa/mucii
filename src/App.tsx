@@ -339,7 +339,7 @@ function App() {
             </div>
 
             {/* Nav tabs */}
-            <nav className="flex space-x-3">
+            <nav className="flex space-x-6">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
