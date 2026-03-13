@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Home, CheckSquare, Package, ShoppingCart, Settings, Users } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Home, CheckSquare, Package, ShoppingCart, LogOut, Users, HomeIcon, Settings } from 'lucide-react';
 import { supabase } from './utils/supabaseClient';
 import AuthPage from './components/AuthPage';
 import HouseholdSetup from './components/HouseholdSetup';
@@ -35,14 +35,27 @@ function App() {
   const [tasks, setTasks] = useState([]);
   const [inventoryItems, setInventoryItems] = useState([]);
   const [shoppingItems, setShoppingItems] = useState([]);
+  const [userHomeCount, setUserHomeCount] = useState(1);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const tabs = [
     { id: 'dashboard', name: 'Dashboard', icon: Home },
     { id: 'tasks', name: 'Tasks', icon: CheckSquare },
     { id: 'inventory', name: 'Inventory', icon: Package },
     { id: 'shopping', name: 'Shopping', icon: ShoppingCart },
-    { id: 'settings', name: 'Settings', icon: Settings }
   ];
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -75,7 +88,6 @@ function App() {
       full_name: authUser.user_metadata?.full_name || authUser.email
     };
     setOwnerUser(owner);
-    // Check if they've set up their first home
     const { data: homes } = await supabase
       .from('homes')
       .select('id, name')
@@ -84,14 +96,29 @@ function App() {
     if (!homes || homes.length === 0) {
       setScreen('setup');
     } else {
-      setScreen('home_select'); // HomeSelectionScreen handles skip-if-one-home
+      setScreen('home_select');
+    }
+  };
+
+  // Fetch how many homes the active user belongs to
+  const fetchUserHomeCount = async (userId: string, isOwner: boolean) => {
+    if (isOwner) {
+      const { count } = await supabase
+        .from('homes')
+        .select('id', { count: 'exact', head: true });
+      setUserHomeCount(count || 1);
+    } else {
+      const { count } = await supabase
+        .from('home_members')
+        .select('home_id', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      setUserHomeCount(count || 1);
     }
   };
 
   const handleAuthSuccess = () => {};
 
   const handleSetupComplete = async (name: string) => {
-    // Create first home and add owner as member
     const { data: { user } } = await supabase.auth.getUser();
     const { data: home } = await supabase
       .from('homes')
@@ -114,20 +141,45 @@ function App() {
     setScreen('pin');
   };
 
-  const handleUserSelected = (user: ActiveUser) => {
+  const handleUserSelected = async (user: ActiveUser) => {
     setActiveUser(user);
     setActiveTab('dashboard');
+    await fetchUserHomeCount(user.id, user.is_owner);
     setScreen('app');
   };
 
   const handleSwitchUser = () => {
+    setMenuOpen(false);
     setActiveUser(null);
     setScreen('pin');
   };
 
   const handleSwitchHome = () => {
+    setMenuOpen(false);
+    setActiveUser(null);
     setActiveHome(null);
     setScreen('home_select');
+  };
+
+  const handleOpenSettings = () => {
+    setMenuOpen(false);
+    setActiveTab('settings');
+  };
+
+  const handleLogOut = async () => {
+    setMenuOpen(false);
+    if (activeUser && !activeUser.is_owner) {
+      // Non-owner: just drop back to PIN screen
+      setActiveUser(null);
+      setScreen('pin');
+    } else {
+      // Owner: full sign out
+      await supabase.auth.signOut();
+      setActiveUser(null);
+      setOwnerUser(null);
+      setActiveHome(null);
+      setScreen('auth');
+    }
   };
 
   const handleSignOut = async () => {
@@ -254,13 +306,8 @@ function App() {
     return <HouseholdSetup userId={ownerUser.id} userFullName={ownerUser.full_name} onSetupComplete={handleSetupComplete} />;
   }
 
- if (screen === 'home_select') {
-    return <HomeSelectionScreen
-      onHomeSelected={handleHomeSelected}
-      onSignOut={handleSignOut}
-      activeUserId={activeUser?.id}
-      isOwner={!activeUser || activeUser.is_owner}
-    />;
+  if (screen === 'home_select') {
+    return <HomeSelectionScreen onHomeSelected={handleHomeSelected} onSignOut={handleSignOut} />;
   }
 
   if (screen === 'pin' && activeHome) {
@@ -275,6 +322,11 @@ function App() {
   }
 
   // ── Main App ────────────────────────────────────────────────
+
+  const displayName = activeUser?.full_name.split(' ')[0] ?? ownerUser?.full_name.split(' ')[0] ?? '';
+  const displayInitial = displayName.charAt(0).toUpperCase();
+  const homeName = activeHome?.name ?? '';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-amber-50">
       <header className="bg-white/80 backdrop-blur-sm border-b border-white/50 sticky top-0 z-40">
@@ -282,11 +334,11 @@ function App() {
           <div className="flex items-center justify-between h-16">
 
             {/* Logo */}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center">
               <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-14 w-auto" />
             </div>
 
-            {/* Nav */}
+            {/* Nav tabs */}
             <nav className="flex space-x-1">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
@@ -305,41 +357,75 @@ function App() {
               })}
             </nav>
 
-            {/* Active user + controls */}
-{activeUser && (
-  <div className="flex items-center space-x-2">
-    {/* User pill */}
-    <div className="flex items-center space-x-2 bg-white/70 border border-gray-200 rounded-full px-3 py-1.5">
-      <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-        {activeUser.full_name.charAt(0).toUpperCase()}
-      </div>
-      <span className="text-sm font-medium text-gray-700">{activeUser.full_name.split(' ')[0]}</span>
-      <span className="text-xs text-gray-400 capitalize">{activeUser.role}</span>
-    </div>
-   {/* Switch user */}
-                <button onClick={handleSwitchUser}
-                  className="flex items-center space-x-1.5 text-sm text-gray-500 hover:text-purple-900 transition-colors px-3 py-1.5 rounded-full hover:bg-purple-50"
-                  title="Switch user">
-                  <Users className="w-4 h-4" />
-                  <span>Switch</span>
+            {/* User cluster + dropdown */}
+            {activeUser && (
+              <div className="relative" ref={menuRef}>
+                {/* Trigger */}
+                <button
+                  onClick={() => setMenuOpen(prev => !prev)}
+                  className="flex items-center space-x-2 bg-white/70 border border-gray-200 rounded-full px-3 py-1.5 hover:border-purple-300 hover:bg-purple-50/50 transition-all"
+                >
+                  {/* Avatar */}
+                  <div className="w-7 h-7 bg-gradient-to-br from-purple-500 to-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    {displayInitial}
+                  </div>
+                  {/* Name | Home */}
+                  <span className="text-sm font-medium text-gray-700">{displayName}</span>
+                  <span className="text-gray-300 text-sm">|</span>
+                  <span className="text-sm text-gray-500">{homeName}</span>
                 </button>
-                {/* Switch home — owner and admin only */}
-                {(activeUser.is_owner || activeUser.role === 'admin') && (
-                  <button onClick={handleSwitchHome}
-                    className="flex items-center space-x-1.5 text-sm text-gray-500 hover:text-purple-900 transition-colors px-3 py-1.5 rounded-full hover:bg-purple-50"
-                    title="Switch home">
-                    <Home className="w-4 h-4" />
-                    <span className="hidden sm:inline">{activeHome?.name}</span>
-                  </button>
+
+                {/* Dropdown */}
+                {menuOpen && (
+                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
+                    {/* Context header */}
+                    <div className="px-4 py-3 bg-gradient-to-r from-purple-50 to-amber-50 border-b border-gray-100">
+                      <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Signed in as</p>
+                      <p className="text-sm font-semibold text-gray-800 mt-0.5">{displayName} · {homeName}</p>
+                    </div>
+
+                    <div className="py-1">
+                      {/* Switch User */}
+                      <button onClick={handleSwitchUser}
+                        className="w-full flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900 transition-colors">
+                        <Users className="w-4 h-4 text-gray-400" />
+                        <span>Switch User</span>
+                      </button>
+
+                      {/* Switch Home — only if user has access to more than 1 home */}
+                      {userHomeCount > 1 && (
+                        <button onClick={handleSwitchHome}
+                          className="w-full flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900 transition-colors">
+                          <HomeIcon className="w-4 h-4 text-gray-400" />
+                          <span>Switch Home</span>
+                        </button>
+                      )}
+
+                      {/* Settings */}
+                      <button onClick={handleOpenSettings}
+                        className="w-full flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900 transition-colors">
+                        <Settings className="w-4 h-4 text-gray-400" />
+                        <span>Settings</span>
+                      </button>
+
+                      <div className="border-t border-gray-100 my-1" />
+
+                      {/* Log out */}
+                      <button onClick={handleLogOut}
+                        className="w-full flex items-center space-x-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                        <LogOut className="w-4 h-4" />
+                        <span>Log out</span>
+                      </button>
+                    </div>
+                  </div>
                 )}
-    {/* Switch home — only shown when owner */}
-    
-  </div>
-)}
+              </div>
+            )}
 
           </div>
         </div>
       </header>
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {renderContent()}
       </main>
