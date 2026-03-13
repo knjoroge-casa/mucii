@@ -24,18 +24,7 @@ interface PinSelectionScreenProps {
   onSignOut: () => void;
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  owner:       'bg-purple-100 text-purple-800 border-purple-200',
-  admin:       'bg-blue-100 text-blue-800 border-blue-200',
-  housekeeper: 'bg-amber-100 text-amber-800 border-amber-200',
-  viewer:      'bg-gray-100 text-gray-700 border-gray-200',
-  member:      'bg-gray-100 text-gray-700 border-gray-200',
-};
 
-const ROLE_LABELS: Record<string, string> = {
-  owner: 'Owner', admin: 'Admin',
-  housekeeper: 'Housekeeper', viewer: 'Viewer', member: 'Member',
-};
 
 async function hashPin(pin: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -236,9 +225,6 @@ const handleOwnerPinSetup = async () => {
                     <h3 className="font-bold text-gray-900 text-base leading-tight mb-2">
                       {member.full_name.split(' ')[0]}
                     </h3>
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium border ${ROLE_COLORS[member.role] || ROLE_COLORS.member}`}>
-                      {ROLE_LABELS[member.role] || member.role}
-                    </span>
                   </button>
                 ))}
               </div>
@@ -263,9 +249,7 @@ const handleOwnerPinSetup = async () => {
                   {selectedMember.full_name.charAt(0).toUpperCase()}
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900">{selectedMember.full_name}</h2>
-                <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium border mt-2 ${ROLE_COLORS[selectedMember.role] || ROLE_COLORS.member}`}>
-                  {ROLE_LABELS[selectedMember.role] || selectedMember.role}
-                </span>
+      
                 <p className="text-gray-500 mt-4 text-sm">Enter your 4-digit PIN</p>
               </div>
 
