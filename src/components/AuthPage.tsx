@@ -103,9 +103,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gradient-to-br from-purple-50 via-white to-amber-50">
         <div className="w-full max-w-md">
 
-          {/* Mobile logo */}
-          <div className="lg:hidden mb-10">
-            <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-10 w-auto" />
+         {/* Logo */}
+          <div className="flex justify-center mb-10">
+            <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-14 w-auto" />
           </div>
 
           {/* Back button for forgot password */}
