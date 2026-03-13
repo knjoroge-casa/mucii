@@ -67,15 +67,6 @@ const PinSelectionScreen: React.FC<PinSelectionScreenProps> = ({
   }, []);
 
   const handleCardClick = (member: HouseholdMember) => {
-    if (member.is_owner) {
-      onUserSelected({
-        id: member.id,
-        full_name: member.full_name,
-        role: member.role,
-        is_owner: true,
-      });
-      return;
-    }
     setSelectedMember(member);
     setPin('');
     setPinError('');
