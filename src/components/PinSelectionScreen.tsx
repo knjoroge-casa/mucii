@@ -175,18 +175,7 @@ const handleOwnerPinSetup = async () => {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-amber-50">
 
       {/* Header */}
-      <div className="flex items-center justify-between px-6 pt-8 pb-2 max-w-5xl mx-auto">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-purple-900 to-amber-600 rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-lg">M</span>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-purple-900 to-amber-600 bg-clip-text text-transparent">
-              Mûcií
-            </h1>
-            <p className="text-xs text-gray-500">Home, simplified</p>
-          </div>
-        </div>
+      <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-14 w-auto" />
         <button
           onClick={onSignOut}
           className="flex items-center space-x-2 text-sm text-gray-500 hover:text-red-600 transition-colors px-3 py-2 rounded-lg hover:bg-red-50"
