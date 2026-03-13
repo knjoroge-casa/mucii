@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import { Loader2, LogOut, RotateCcw } from 'lucide-react';
-
+import { Loader2, LogOut, RotateCcw, Eye, EyeOff } from 'lucide-react';
 interface HouseholdMember {
   id: string;
   full_name: string;
@@ -55,6 +54,12 @@ const PinSelectionScreen: React.FC<PinSelectionScreenProps> = ({
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [validating, setValidating] = useState(false);
+  const [needsOwnerPinSetup, setNeedsOwnerPinSetup] = useState(false);
+  const [newOwnerPin, setNewOwnerPin] = useState('');
+  const [newOwnerPinConfirm, setNewOwnerPinConfirm] = useState('');
+  const [ownerPinSetupError, setOwnerPinSetupError] = useState('');
+  const [ownerPinSetupSaving, setOwnerPinSetupSaving] = useState(false);
+  const [showNewOwnerPin, setShowNewOwnerPin] = useState(false);
 
   useEffect(() => {
     const loadMembers = async () => {
@@ -99,14 +104,40 @@ const PinSelectionScreen: React.FC<PinSelectionScreenProps> = ({
     setPin(prev => prev.slice(0, -1));
     setPinError('');
   };
-
+const handleOwnerPinSetup = async () => {
+    setOwnerPinSetupError('');
+    if (!/^\d{4}$/.test(newOwnerPin)) { setOwnerPinSetupError('PIN must be exactly 4 digits.'); return; }
+    if (newOwnerPin !== newOwnerPinConfirm) { setOwnerPinSetupError('PINs do not match.'); return; }
+    setOwnerPinSetupSaving(true);
+    try {
+      const encoder = new TextEncoder();
+      const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(newOwnerPin));
+      const hashed = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+      const { error } = await supabase.from('users').update({ hashed_pin: hashed }).eq('id', selectedMember!.id);
+      if (error) throw error;
+      // Update local member so PIN entry works immediately
+      setMembers(prev => prev.map(m => m.id === selectedMember!.id ? { ...m, hashed_pin: hashed } : m));
+      setSelectedMember(prev => prev ? { ...prev, hashed_pin: hashed } : prev);
+      setNeedsOwnerPinSetup(false);
+      setNewOwnerPin('');
+      setNewOwnerPinConfirm('');
+    } catch (err: any) {
+      setOwnerPinSetupError(`Could not save PIN: ${err.message}`);
+    } finally {
+      setOwnerPinSetupSaving(false);
+    }
+  };
   const validatePin = async (enteredPin: string) => {
     if (!selectedMember) return;
     setValidating(true);
     setPinError('');
     try {
       if (!selectedMember.hashed_pin) {
-        setPinError('No PIN set. Ask the Owner to set one.');
+        if (selectedMember.is_owner) {
+          setNeedsOwnerPinSetup(true);
+        } else {
+          setPinError('No PIN set. Ask the Owner to set one.');
+        }
         setPin('');
         setValidating(false);
         return;
@@ -255,7 +286,39 @@ const PinSelectionScreen: React.FC<PinSelectionScreenProps> = ({
                   <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
                 </div>
               )}
-
+{needsOwnerPinSetup && (
+                <div className="mb-6 p-5 bg-purple-50 rounded-2xl border border-purple-200 space-y-3">
+                  <p className="text-sm font-semibold text-purple-900 text-center">Set your owner PIN to continue</p>
+                  <div className="relative">
+                    <input
+                      type={showNewOwnerPin ? 'text' : 'password'}
+                      value={newOwnerPin}
+                      onChange={e => setNewOwnerPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      className="w-full px-4 py-3 pr-12 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-2xl tracking-widest"
+                      placeholder="New PIN"
+                      maxLength={4}
+                    />
+                    <button type="button" onClick={() => setShowNewOwnerPin(!showNewOwnerPin)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      {showNewOwnerPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <input
+                    type={showNewOwnerPin ? 'text' : 'password'}
+                    value={newOwnerPinConfirm}
+                    onChange={e => setNewOwnerPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    className="w-full px-4 py-3 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-2xl tracking-widest"
+                    placeholder="Confirm PIN"
+                    maxLength={4}
+                  />
+                  {ownerPinSetupError && <p className="text-red-600 text-sm text-center">{ownerPinSetupError}</p>}
+                  <button onClick={handleOwnerPinSetup} disabled={ownerPinSetupSaving || newOwnerPin.length !== 4}
+                    className="w-full py-3 bg-gradient-to-r from-purple-900 to-purple-800 text-white rounded-xl font-semibold disabled:opacity-60 flex items-center justify-center space-x-2">
+                    {ownerPinSetupSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                    <span>{ownerPinSetupSaving ? 'Saving...' : 'Set PIN & Continue'}</span>
+                  </button>
+                </div>
+              )}
               {/* Keypad */}
               <div className="grid grid-cols-3 gap-3">
                 {['1','2','3','4','5','6','7','8','9'].map(digit => (
