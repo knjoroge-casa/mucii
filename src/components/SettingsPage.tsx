@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Users, Save, Plus, Edit3, Check, Loader2, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { Home, Users, Plus, Edit3, Check, Loader2, KeyRound, Eye, EyeOff } from 'lucide-react';
 import UserManagement from './UserManagement';
 import { getPermissions } from '../utils/permissions';
 import { supabase } from '../utils/supabaseClient';
@@ -34,6 +34,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const [newHomeName, setNewHomeName] = useState('');
   const [addingHome, setAddingHome] = useState(false);
   const [homeError, setHomeError] = useState('');
+
   // Owner PIN state
   const [ownerPin, setOwnerPin] = useState('');
   const [ownerPinConfirm, setOwnerPinConfirm] = useState('');
@@ -41,29 +42,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const [ownerPinError, setOwnerPinError] = useState('');
   const [ownerPinSaving, setOwnerPinSaving] = useState(false);
   const [ownerPinSaved, setOwnerPinSaved] = useState(false);
-
-  const handleSaveOwnerPin = async () => {
-    setOwnerPinError('');
-    if (!/^\d{4}$/.test(ownerPin)) { setOwnerPinError('PIN must be exactly 4 digits.'); return; }
-    if (ownerPin !== ownerPinConfirm) { setOwnerPinError('PINs do not match.'); return; }
-    setOwnerPinSaving(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const encoder = new TextEncoder();
-      const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(ownerPin));
-      const hashed = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-      const { error } = await supabase.from('users').update({ hashed_pin: hashed }).eq('id', user?.id);
-      if (error) throw error;
-      setOwnerPin('');
-      setOwnerPinConfirm('');
-      setOwnerPinSaved(true);
-      setTimeout(() => setOwnerPinSaved(false), 2000);
-    } catch (err: any) {
-      setOwnerPinError(`Could not save PIN: ${err.message}`);
-    } finally {
-      setOwnerPinSaving(false);
-    }
-  };
 
   useEffect(() => {
     if (activeSection !== 'house' || !can.canEditHouseName) return;
@@ -113,7 +91,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         .select('id, name')
         .single();
       if (error) throw error;
-      // Add owner as member of new home
       await supabase.from('home_members').insert({
         home_id: data.id, user_id: user?.id, display_order: 0
       });
@@ -124,6 +101,29 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
       setHomeError(`Could not add home: ${err.message}`);
     } finally {
       setAddingHome(false);
+    }
+  };
+
+  const handleSaveOwnerPin = async () => {
+    setOwnerPinError('');
+    if (!/^\d{4}$/.test(ownerPin)) { setOwnerPinError('PIN must be exactly 4 digits.'); return; }
+    if (ownerPin !== ownerPinConfirm) { setOwnerPinError('PINs do not match.'); return; }
+    setOwnerPinSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const encoder = new TextEncoder();
+      const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(ownerPin));
+      const hashed = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+      const { error } = await supabase.from('users').update({ hashed_pin: hashed }).eq('id', user?.id);
+      if (error) throw error;
+      setOwnerPin('');
+      setOwnerPinConfirm('');
+      setOwnerPinSaved(true);
+      setTimeout(() => setOwnerPinSaved(false), 2000);
+    } catch (err: any) {
+      setOwnerPinError(`Could not save PIN: ${err.message}`);
+    } finally {
+      setOwnerPinSaving(false);
     }
   };
 
@@ -144,6 +144,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
     return (
       <div className="space-y-6">
+
+        {/* Homes list */}
         <div>
           <h3 className="text-xl font-semibold text-gray-900 mb-1">Your Homes</h3>
           <p className="text-gray-500 text-sm mb-6">Rename your homes or add a new one.</p>
@@ -162,12 +164,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                       ? 'bg-purple-50/60 border-purple-200'
                       : 'bg-white/70 border-white/50'
                   }`}>
-                  {/* Home initial */}
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-900 to-amber-600 rounded-full flex items-center justify-center text-white font-bold text-base flex-shrink-0">
                     {home.name.charAt(0).toUpperCase()}
                   </div>
-
-                  {/* Name / edit field */}
                   <div className="flex-1 min-w-0">
                     {editingHomeId === home.id ? (
                       <input
@@ -193,8 +192,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                       </div>
                     )}
                   </div>
-
-                  {/* Actions */}
                   {editingHomeId === home.id ? (
                     <div className="flex space-x-2">
                       <button onClick={() => setEditingHomeId(null)}
@@ -218,7 +215,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                 </div>
               ))}
 
-              {/* Add home row */}
               {!showAddHome ? (
                 <button onClick={() => setShowAddHome(true)}
                   className="w-full flex items-center space-x-3 p-4 rounded-2xl border-2 border-dashed border-purple-200 hover:border-purple-400 hover:bg-purple-50/30 transition-all text-purple-400 hover:text-purple-700">
@@ -258,11 +254,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             </div>
           )}
         </div>
-        )}
-        </div>
 
         {/* Owner PIN */}
-        <div className="mt-8 pt-8 border-t border-gray-100">
+        <div className="pt-8 border-t border-gray-100">
           <h3 className="text-xl font-semibold text-gray-900 mb-1">Your PIN</h3>
           <p className="text-gray-500 text-sm mb-6">Set or update your 4-digit PIN for the home screen.</p>
           <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-white/50 shadow-lg space-y-4">
@@ -296,7 +290,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             </div>
             {ownerPinError && <p className="text-red-600 text-sm font-medium">{ownerPinError}</p>}
             <div className="flex justify-end">
-              <button onClick={handleSaveOwnerPin} disabled={ownerPinSaving || ownerPin.length !== 4}
+              <button
+                onClick={handleSaveOwnerPin}
+                disabled={ownerPinSaving || ownerPin.length !== 4}
                 className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all ${
                   ownerPinSaved
                     ? 'bg-green-600 text-white'
@@ -311,9 +307,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
           </div>
         </div>
 
-      </div>
-    );
-  };
       </div>
     );
   };
