@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Users, Save, Plus, Edit3, Check, Loader2 } from 'lucide-react';
+import { Home, Users, Save, Plus, Edit3, Check, Loader2, KeyRound, Eye, EyeOff } from 'lucide-react';
 import UserManagement from './UserManagement';
 import { getPermissions } from '../utils/permissions';
 import { supabase } from '../utils/supabaseClient';
@@ -34,6 +34,36 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const [newHomeName, setNewHomeName] = useState('');
   const [addingHome, setAddingHome] = useState(false);
   const [homeError, setHomeError] = useState('');
+  // Owner PIN state
+  const [ownerPin, setOwnerPin] = useState('');
+  const [ownerPinConfirm, setOwnerPinConfirm] = useState('');
+  const [showOwnerPin, setShowOwnerPin] = useState(false);
+  const [ownerPinError, setOwnerPinError] = useState('');
+  const [ownerPinSaving, setOwnerPinSaving] = useState(false);
+  const [ownerPinSaved, setOwnerPinSaved] = useState(false);
+
+  const handleSaveOwnerPin = async () => {
+    setOwnerPinError('');
+    if (!/^\d{4}$/.test(ownerPin)) { setOwnerPinError('PIN must be exactly 4 digits.'); return; }
+    if (ownerPin !== ownerPinConfirm) { setOwnerPinError('PINs do not match.'); return; }
+    setOwnerPinSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const encoder = new TextEncoder();
+      const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(ownerPin));
+      const hashed = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+      const { error } = await supabase.from('users').update({ hashed_pin: hashed }).eq('id', user?.id);
+      if (error) throw error;
+      setOwnerPin('');
+      setOwnerPinConfirm('');
+      setOwnerPinSaved(true);
+      setTimeout(() => setOwnerPinSaved(false), 2000);
+    } catch (err: any) {
+      setOwnerPinError(`Could not save PIN: ${err.message}`);
+    } finally {
+      setOwnerPinSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (activeSection !== 'house' || !can.canEditHouseName) return;
@@ -228,6 +258,62 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             </div>
           )}
         </div>
+        )}
+        </div>
+
+        {/* Owner PIN */}
+        <div className="mt-8 pt-8 border-t border-gray-100">
+          <h3 className="text-xl font-semibold text-gray-900 mb-1">Your PIN</h3>
+          <p className="text-gray-500 text-sm mb-6">Set or update your 4-digit PIN for the home screen.</p>
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-white/50 shadow-lg space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">New PIN</label>
+              <div className="relative">
+                <input
+                  type={showOwnerPin ? 'text' : 'password'}
+                  value={ownerPin}
+                  onChange={e => setOwnerPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-2xl tracking-widest"
+                  placeholder="••••"
+                  maxLength={4}
+                />
+                <button type="button" onClick={() => setShowOwnerPin(!showOwnerPin)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showOwnerPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm PIN</label>
+              <input
+                type={showOwnerPin ? 'text' : 'password'}
+                value={ownerPinConfirm}
+                onChange={e => setOwnerPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-2xl tracking-widest"
+                placeholder="••••"
+                maxLength={4}
+              />
+            </div>
+            {ownerPinError && <p className="text-red-600 text-sm font-medium">{ownerPinError}</p>}
+            <div className="flex justify-end">
+              <button onClick={handleSaveOwnerPin} disabled={ownerPinSaving || ownerPin.length !== 4}
+                className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all ${
+                  ownerPinSaved
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gradient-to-r from-purple-900 to-purple-800 text-white shadow-lg hover:shadow-xl disabled:opacity-60'
+                }`}>
+                {ownerPinSaving
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <KeyRound className="w-4 h-4" />}
+                <span>{ownerPinSaved ? 'Saved!' : ownerPinSaving ? 'Saving...' : 'Save PIN'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    );
+  };
       </div>
     );
   };
