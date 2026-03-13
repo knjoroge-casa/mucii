@@ -81,16 +81,6 @@ const PinSelectionScreen: React.FC<PinSelectionScreenProps> = ({
   }, []);
 
   const handleCardClick = (member: HouseholdMember) => {
-    // Owner is already authenticated via Supabase — no PIN needed
-    if (member.is_owner) {
-      onUserSelected({
-        id: member.id,
-        full_name: member.full_name,
-        role: member.role,
-        is_owner: true,
-      });
-      return;
-    }
     setSelectedMember(member);
     setPin('');
     setPinError('');
@@ -218,9 +208,6 @@ const PinSelectionScreen: React.FC<PinSelectionScreenProps> = ({
                     <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium border ${ROLE_COLORS[member.role] || ROLE_COLORS.member}`}>
                       {ROLE_LABELS[member.role] || member.role}
                     </span>
-                    {member.is_owner && (
-                      <p className="text-xs text-gray-400 mt-2">Tap to enter</p>
-                    )}
                   </button>
                 ))}
               </div>
