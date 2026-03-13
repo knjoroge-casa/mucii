@@ -344,7 +344,7 @@ function App() {
                 const Icon = tab.icon;
                 return (
                   <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center space-x-2 px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    className={`flex items-center space-x-2 px-5 py-2 rounded-full text-base font-medium transition-all duration-200 ${
                       activeTab === tab.id
                         ? 'bg-gradient-to-r from-purple-900 to-purple-800 text-white shadow-lg shadow-purple-900/25'
                         : 'text-gray-600 hover:text-purple-900 hover:bg-purple-50'
