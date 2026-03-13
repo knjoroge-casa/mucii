@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Users, Plus, Edit3, Check, Loader2, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { Home, Users, Plus, Edit3, Check, Loader2, Trash2, KeyRound, Eye, EyeOff } from 'lucide-react';
 import UserManagement from './UserManagement';
 import { getPermissions } from '../utils/permissions';
 import { supabase } from '../utils/supabaseClient';
@@ -23,7 +23,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const can = getPermissions(activeUserRole);
   const [activeSection, setActiveSection] = useState('house');
 
-  // House Customization state
+  // Homes state
   const [homes, setHomes] = useState<HomeEntry[]>([]);
   const [homesLoading, setHomesLoading] = useState(true);
   const [editingHomeId, setEditingHomeId] = useState<string | null>(null);
@@ -34,6 +34,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const [newHomeName, setNewHomeName] = useState('');
   const [addingHome, setAddingHome] = useState(false);
   const [homeError, setHomeError] = useState('');
+  const [deleteConfirmHomeId, setDeleteConfirmHomeId] = useState<string | null>(null);
+  const [deletingHomeId, setDeletingHomeId] = useState<string | null>(null);
 
   // Owner PIN state
   const [ownerPin, setOwnerPin] = useState('');
@@ -77,6 +79,20 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     }
     setEditingHomeId(null);
     setSavingHomeId(null);
+  };
+
+  const handleDeleteHome = async (homeId: string) => {
+    setDeletingHomeId(homeId);
+    try {
+      const { error } = await supabase.from('homes').delete().eq('id', homeId);
+      if (error) throw error;
+      setHomes(prev => prev.filter(h => h.id !== homeId));
+      setDeleteConfirmHomeId(null);
+    } catch (err: any) {
+      setHomeError(`Could not delete home: ${err.message}`);
+    } finally {
+      setDeletingHomeId(null);
+    }
   };
 
   const handleAddHome = async () => {
@@ -142,13 +158,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
       );
     }
 
+    const deleteConfirmHome = homes.find(h => h.id === deleteConfirmHomeId);
+
     return (
       <div className="space-y-6">
 
         {/* Homes list */}
         <div>
           <h3 className="text-xl font-semibold text-gray-900 mb-1">Your Homes</h3>
-          <p className="text-gray-500 text-sm mb-6">Rename your homes or add a new one.</p>
+          <p className="text-gray-500 text-sm mb-6">Rename, add, or remove your homes.</p>
 
           {homesLoading ? (
             <div className="flex items-center space-x-3 py-8">
@@ -164,9 +182,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                       ? 'bg-purple-50/60 border-purple-200'
                       : 'bg-white/70 border-white/50'
                   }`}>
+
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-900 to-amber-600 rounded-full flex items-center justify-center text-white font-bold text-base flex-shrink-0">
                     {home.name.charAt(0).toUpperCase()}
                   </div>
+
                   <div className="flex-1 min-w-0">
                     {editingHomeId === home.id ? (
                       <input
@@ -192,6 +212,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                       </div>
                     )}
                   </div>
+
+                  {/* Actions */}
                   {editingHomeId === home.id ? (
                     <div className="flex space-x-2">
                       <button onClick={() => setEditingHomeId(null)}
@@ -207,14 +229,24 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                       </button>
                     </div>
                   ) : (
-                    <button onClick={() => handleStartEdit(home)}
-                      className="p-2 text-gray-400 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-all">
-                      <Edit3 className="w-4 h-4" />
-                    </button>
+                    <div className="flex space-x-1">
+                      <button onClick={() => handleStartEdit(home)}
+                        className="p-2 text-gray-400 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-all">
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      {/* Can't delete the current home or the only home */}
+                      {home.id !== activeHomeId && homes.length > 1 && (
+                        <button onClick={() => setDeleteConfirmHomeId(home.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}
 
+              {/* Add home */}
               {!showAddHome ? (
                 <button onClick={() => setShowAddHome(true)}
                   className="w-full flex items-center space-x-3 p-4 rounded-2xl border-2 border-dashed border-purple-200 hover:border-purple-400 hover:bg-purple-50/30 transition-all text-purple-400 hover:text-purple-700">
@@ -306,6 +338,41 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Delete confirm modal */}
+        {deleteConfirmHomeId && deleteConfirmHome && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="w-8 h-8 text-red-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Delete Home</h2>
+                <p className="text-gray-600 mb-2">
+                  Delete <span className="font-semibold">{deleteConfirmHome.name}</span>?
+                </p>
+                <p className="text-sm text-gray-400 mb-6">
+                  This will remove the home and all its member associations. This cannot be undone.
+                </p>
+                {homeError && <p className="text-red-600 text-sm mb-4">{homeError}</p>}
+                <div className="flex justify-center space-x-4">
+                  <button
+                    onClick={() => { setDeleteConfirmHomeId(null); setHomeError(''); }}
+                    className="px-6 py-3 border border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleDeleteHome(deleteConfirmHomeId)}
+                    disabled={!!deletingHomeId}
+                    className="px-6 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-all disabled:opacity-60 flex items-center space-x-2">
+                    {deletingHomeId && <Loader2 className="w-4 h-4 animate-spin" />}
+                    <span>{deletingHomeId ? 'Deleting...' : 'Delete'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     );
