@@ -114,7 +114,7 @@ const HomeSelectionScreen: React.FC<HomeSelectionScreenProps> = ({
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-amber-50">
       <div className="flex items-center justify-between px-6 pt-8 pb-2 max-w-5xl mx-auto">
-        <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-10 w-auto" />
+        <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-14 w-auto" />
         <button
           onClick={onSignOut}
           className="flex items-center space-x-2 text-sm text-gray-500 hover:text-red-600 transition-colors px-3 py-2 rounded-lg hover:bg-red-50"
