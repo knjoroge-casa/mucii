@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import { Loader2, LogOut, RotateCcw, Eye, EyeOff } from 'lucide-react';
+import { Loader2, LogOut, RotateCcw } from 'lucide-react';
+
 interface HouseholdMember {
   id: string;
   full_name: string;
@@ -24,8 +25,6 @@ interface PinSelectionScreenProps {
   onSignOut: () => void;
 }
 
-
-
 async function hashPin(pin: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(pin);
@@ -43,12 +42,6 @@ const PinSelectionScreen: React.FC<PinSelectionScreenProps> = ({
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [validating, setValidating] = useState(false);
-  const [needsOwnerPinSetup, setNeedsOwnerPinSetup] = useState(false);
-  const [newOwnerPin, setNewOwnerPin] = useState('');
-  const [newOwnerPinConfirm, setNewOwnerPinConfirm] = useState('');
-  const [ownerPinSetupError, setOwnerPinSetupError] = useState('');
-  const [ownerPinSetupSaving, setOwnerPinSetupSaving] = useState(false);
-  const [showNewOwnerPin, setShowNewOwnerPin] = useState(false);
 
   useEffect(() => {
     const loadMembers = async () => {
@@ -58,7 +51,6 @@ const PinSelectionScreen: React.FC<PinSelectionScreenProps> = ({
           .select('display_order, users(id, full_name, role, is_owner, hashed_pin)')
           .eq('home_id', homeId)
           .order('display_order', { ascending: true });
-        // Flatten the join result
         const flatData = (data || [])
           .map((row: any) => ({ ...row.users, display_order: row.display_order }))
           .filter(Boolean)
@@ -75,6 +67,15 @@ const PinSelectionScreen: React.FC<PinSelectionScreenProps> = ({
   }, []);
 
   const handleCardClick = (member: HouseholdMember) => {
+    if (member.is_owner) {
+      onUserSelected({
+        id: member.id,
+        full_name: member.full_name,
+        role: member.role,
+        is_owner: true,
+      });
+      return;
+    }
     setSelectedMember(member);
     setPin('');
     setPinError('');
@@ -93,40 +94,14 @@ const PinSelectionScreen: React.FC<PinSelectionScreenProps> = ({
     setPin(prev => prev.slice(0, -1));
     setPinError('');
   };
-const handleOwnerPinSetup = async () => {
-    setOwnerPinSetupError('');
-    if (!/^\d{4}$/.test(newOwnerPin)) { setOwnerPinSetupError('PIN must be exactly 4 digits.'); return; }
-    if (newOwnerPin !== newOwnerPinConfirm) { setOwnerPinSetupError('PINs do not match.'); return; }
-    setOwnerPinSetupSaving(true);
-    try {
-      const encoder = new TextEncoder();
-      const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(newOwnerPin));
-      const hashed = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-      const { error } = await supabase.from('users').update({ hashed_pin: hashed }).eq('id', selectedMember!.id);
-      if (error) throw error;
-      // Update local member so PIN entry works immediately
-      setMembers(prev => prev.map(m => m.id === selectedMember!.id ? { ...m, hashed_pin: hashed } : m));
-      setSelectedMember(prev => prev ? { ...prev, hashed_pin: hashed } : prev);
-      setNeedsOwnerPinSetup(false);
-      setNewOwnerPin('');
-      setNewOwnerPinConfirm('');
-    } catch (err: any) {
-      setOwnerPinSetupError(`Could not save PIN: ${err.message}`);
-    } finally {
-      setOwnerPinSetupSaving(false);
-    }
-  };
+
   const validatePin = async (enteredPin: string) => {
     if (!selectedMember) return;
     setValidating(true);
     setPinError('');
     try {
       if (!selectedMember.hashed_pin) {
-        if (selectedMember.is_owner) {
-          setNeedsOwnerPinSetup(true);
-        } else {
-          setPinError('No PIN set. Ask the Owner to set one.');
-        }
+        setPinError('No PIN set. Ask the Owner to set one.');
         setPin('');
         setValidating(false);
         return;
@@ -162,9 +137,7 @@ const handleOwnerPinSetup = async () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-amber-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-14 h-14 bg-gradient-to-br from-purple-900 to-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-2xl">M</span>
-          </div>
+          <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-14 w-auto mx-auto mb-6" />
           <Loader2 className="w-6 h-6 text-purple-600 animate-spin mx-auto" />
         </div>
       </div>
@@ -175,7 +148,8 @@ const handleOwnerPinSetup = async () => {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-amber-50">
 
       {/* Header */}
-      <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-14 w-auto" />
+      <div className="flex items-center justify-between px-6 pt-8 pb-2 max-w-5xl mx-auto">
+        <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-14 w-auto" />
         <button
           onClick={onSignOut}
           className="flex items-center space-x-2 text-sm text-gray-500 hover:text-red-600 transition-colors px-3 py-2 rounded-lg hover:bg-red-50"
@@ -211,7 +185,7 @@ const handleOwnerPinSetup = async () => {
                     <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 text-white font-bold text-2xl shadow-md">
                       {member.full_name.charAt(0).toUpperCase()}
                     </div>
-                    <h3 className="font-bold text-gray-900 text-base leading-tight mb-2">
+                    <h3 className="font-bold text-gray-900 text-base leading-tight">
                       {member.full_name.split(' ')[0]}
                     </h3>
                   </button>
@@ -238,16 +212,18 @@ const handleOwnerPinSetup = async () => {
                   {selectedMember.full_name.charAt(0).toUpperCase()}
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900">{selectedMember.full_name}</h2>
-      
-                <p className="text-gray-500 mt-4 text-sm">Enter your 4-digit PIN</p>
+                <p className="text-gray-500 mt-3 text-sm">Enter your 4-digit PIN</p>
               </div>
 
               {/* PIN dots */}
               <div className="flex justify-center space-x-4 mb-6">
                 {[0, 1, 2, 3].map(i => (
-                  <div key={i} className={`w-4 h-4 rounded-full transition-all duration-150 ${
-                    i < pin.length ? 'bg-purple-800 scale-110' : 'bg-gray-300'
-                  }`} />
+                  <div
+                    key={i}
+                    className={`w-4 h-4 rounded-full transition-all duration-150 ${
+                      i < pin.length ? 'bg-purple-800 scale-110' : 'bg-gray-300'
+                    }`}
+                  />
                 ))}
               </div>
 
@@ -259,56 +235,34 @@ const handleOwnerPinSetup = async () => {
                   <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
                 </div>
               )}
-{needsOwnerPinSetup && (
-                <div className="mb-6 p-5 bg-purple-50 rounded-2xl border border-purple-200 space-y-3">
-                  <p className="text-sm font-semibold text-purple-900 text-center">Set your owner PIN to continue</p>
-                  <div className="relative">
-                    <input
-                      type={showNewOwnerPin ? 'text' : 'password'}
-                      value={newOwnerPin}
-                      onChange={e => setNewOwnerPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                      className="w-full px-4 py-3 pr-12 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-2xl tracking-widest"
-                      placeholder="New PIN"
-                      maxLength={4}
-                    />
-                    <button type="button" onClick={() => setShowNewOwnerPin(!showNewOwnerPin)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                      {showNewOwnerPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  <input
-                    type={showNewOwnerPin ? 'text' : 'password'}
-                    value={newOwnerPinConfirm}
-                    onChange={e => setNewOwnerPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    className="w-full px-4 py-3 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-2xl tracking-widest"
-                    placeholder="Confirm PIN"
-                    maxLength={4}
-                  />
-                  {ownerPinSetupError && <p className="text-red-600 text-sm text-center">{ownerPinSetupError}</p>}
-                  <button onClick={handleOwnerPinSetup} disabled={ownerPinSetupSaving || newOwnerPin.length !== 4}
-                    className="w-full py-3 bg-gradient-to-r from-purple-900 to-purple-800 text-white rounded-xl font-semibold disabled:opacity-60 flex items-center justify-center space-x-2">
-                    {ownerPinSetupSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-                    <span>{ownerPinSetupSaving ? 'Saving...' : 'Set PIN & Continue'}</span>
-                  </button>
-                </div>
-              )}
+
               {/* Keypad */}
               <div className="grid grid-cols-3 gap-3">
-                {['1','2','3','4','5','6','7','8','9'].map(digit => (
-                  <button key={digit} onClick={() => handlePinDigit(digit)}
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(digit => (
+                  <button
+                    key={digit}
+                    onClick={() => handlePinDigit(digit)}
                     disabled={validating || pin.length >= 4}
                     className="h-16 bg-white/80 backdrop-blur-sm rounded-2xl text-xl font-bold text-gray-800 border border-gray-200 shadow-sm hover:bg-purple-50 hover:border-purple-200 hover:text-purple-900 active:scale-95 transition-all disabled:opacity-50"
-                  >{digit}</button>
+                  >
+                    {digit}
+                  </button>
                 ))}
                 <div />
-                <button onClick={() => handlePinDigit('0')}
+                <button
+                  onClick={() => handlePinDigit('0')}
                   disabled={validating || pin.length >= 4}
                   className="h-16 bg-white/80 backdrop-blur-sm rounded-2xl text-xl font-bold text-gray-800 border border-gray-200 shadow-sm hover:bg-purple-50 hover:border-purple-200 hover:text-purple-900 active:scale-95 transition-all disabled:opacity-50"
-                >0</button>
-                <button onClick={handlePinBackspace}
+                >
+                  0
+                </button>
+                <button
+                  onClick={handlePinBackspace}
                   disabled={validating || pin.length === 0}
                   className="h-16 bg-white/80 backdrop-blur-sm rounded-2xl text-xl text-gray-500 border border-gray-200 shadow-sm hover:bg-red-50 hover:border-red-200 hover:text-red-600 active:scale-95 transition-all disabled:opacity-30"
-                >⌫</button>
+                >
+                  ⌫
+                </button>
               </div>
             </div>
           </div>
