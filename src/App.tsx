@@ -59,14 +59,21 @@ function App() {
 
   useEffect(() => {
     const initAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await handleSessionUser(session.user);
-      } else {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          await handleSessionUser(session.user);
+        } else {
+          setScreen('auth');
+        }
+      } catch (err) {
+        console.error('Auth init failed:', err);
         setScreen('auth');
       }
     };
-    initAuth();
+    // Safety fallback — if initAuth hangs for any reason, force to auth after 5s
+    const timeout = setTimeout(() => setScreen(s => s === 'loading' ? 'auth' : s), 5000);
+    initAuth().finally(() => clearTimeout(timeout));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
       if (event === 'SIGNED_IN' && session?.user) {
@@ -82,21 +89,25 @@ function App() {
   }, []);
 
   const handleSessionUser = async (authUser: any) => {
-    const owner: OwnerUser = {
-      id: authUser.id,
-      email: authUser.email,
-      full_name: authUser.user_metadata?.full_name || authUser.email
-    };
-    setOwnerUser(owner);
-    const { data: homes } = await supabase
-      .from('homes')
-      .select('id, name')
-      .order('created_at', { ascending: true });
-
-    if (!homes || homes.length === 0) {
-      setScreen('setup');
-    } else {
-      setScreen('home_select');
+    try {
+      const owner: OwnerUser = {
+        id: authUser.id,
+        email: authUser.email,
+        full_name: authUser.user_metadata?.full_name || authUser.email
+      };
+      setOwnerUser(owner);
+      const { data: homes } = await supabase
+        .from('homes')
+        .select('id, name')
+        .order('created_at', { ascending: true });
+      if (!homes || homes.length === 0) {
+        setScreen('setup');
+      } else {
+        setScreen('home_select');
+      }
+    } catch (err) {
+      console.error('Session user handling failed:', err);
+      setScreen('auth');
     }
   };
 
