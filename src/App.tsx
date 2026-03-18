@@ -58,34 +58,31 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          await handleSessionUser(session.user);
-        } else {
-          setScreen('auth');
-        }
-      } catch (err) {
-        console.error('Auth init failed:', err);
-        setScreen('auth');
-      }
-    };
-    // Safety fallback — if initAuth hangs for any reason, force to auth after 5s
-    const timeout = setTimeout(() => setScreen(s => s === 'loading' ? 'auth' : s), 5000);
-    initAuth().finally(() => clearTimeout(timeout));
+    let handled = false;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
-      if (event === 'SIGNED_IN' && session?.user) {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        if (handled) return;
+        handled = true;
         await handleSessionUser(session.user);
+      } else if (event === 'INITIAL_SESSION' && !session) {
+        setScreen('auth');
       } else if (event === 'SIGNED_OUT') {
+        handled = false;
         setOwnerUser(null);
         setActiveUser(null);
         setActiveHome(null);
         setScreen('auth');
       }
     });
-    return () => subscription.unsubscribe();
+
+    // Fallback in case onAuthStateChange never fires
+    const timeout = setTimeout(() => setScreen(s => s === 'loading' ? 'auth' : s), 5000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   const handleSessionUser = async (authUser: any) => {
