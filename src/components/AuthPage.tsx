@@ -92,11 +92,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
         {/* Overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/60 to-amber-900/40" />
         {/* Branding on image */}
-        <div className="relative z-10 flex flex-col justify-start p-12 text-white">
-          <div className="mb-2">
-            <img src="/assets/Mheaderlogo.png" alt="Mûcií" className="h-14 w-auto" />
-          </div>
-        </div>
+        
       </div>
 
       {/* Right — Auth Form */}
