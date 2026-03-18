@@ -60,13 +60,26 @@ function App() {
   useEffect(() => {
     let handled = false;
 
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          handled = true;
+          await handleSessionUser(session.user);
+        } else {
+          setScreen('auth');
+        }
+      } catch (err) {
+        console.error('Auth init failed:', err);
+        setScreen('auth');
+      }
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+      if (event === 'SIGNED_IN' && session?.user) {
         if (handled) return;
         handled = true;
         await handleSessionUser(session.user);
-      } else if (event === 'INITIAL_SESSION' && !session) {
-        setScreen('auth');
       } else if (event === 'SIGNED_OUT') {
         handled = false;
         setOwnerUser(null);
@@ -76,8 +89,8 @@ function App() {
       }
     });
 
-    // Fallback in case onAuthStateChange never fires
     const timeout = setTimeout(() => setScreen(s => s === 'loading' ? 'auth' : s), 5000);
+    initAuth();
 
     return () => {
       subscription.unsubscribe();
