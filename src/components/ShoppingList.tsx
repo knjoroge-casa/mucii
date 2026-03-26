@@ -23,7 +23,7 @@ const ShoppingList = ({ inventoryItems = [], onUpdateInventory, shoppingItems, s
   const [itemForm, setItemForm] = useState(emptyForm);
 
   const defaultCategories = [
-    'Food & Pantry', 'Fresh Produce', 'Meat, Dairy & Eggs',
+    'Food & Pantry', 'Fresh Produce', 'Meat and Poultry', 'Dairy & Eggs',
     'Beverages', 'Household Supplies', 'Toiletries & Personal Care',
     'Wine & Spirits', 'Other'
   ];
