@@ -295,8 +295,16 @@ function App() {
         return <InventoryManagement inventoryItems={inventoryItems} setInventoryItems={setInventoryItems}
     onGenerateShoppingList={handleGenerateShoppingList} activeUserId={performedBy()} activeUserRole={activeUser?.role || 'viewer'} activeHomeId={activeHome?.id} />;
     case 'shopping':
-        return <ShoppingList inventoryItems={inventoryItems} onUpdateInventory={handleUpdateInventory}
-    shoppingItems={shoppingItems} setShoppingItems={setShoppingItems} activeUserId={performedBy()} activeUserRole={activeUser?.role || 'viewer'} activeHomeId={activeHome?.id} />;
+  return <ShoppingList
+    inventoryItems={inventoryItems}
+    onUpdateInventory={handleUpdateInventory}
+    onAddInventoryItem={(item) => setInventoryItems(prev => [...prev, item])}
+    shoppingItems={shoppingItems}
+    setShoppingItems={setShoppingItems}
+    activeUserId={performedBy()}
+    activeUserRole={activeUser?.role || 'viewer'}
+    activeHomeId={activeHome?.id}
+  />;
       case 'settings':
         return <SettingsPage houseName={activeHome?.name || ''} setHouseName={(name: string) => setActiveHome((h: HomeType | null) => h ? { ...h, name } : h)}
           tasks={tasks} activeUserRole={activeUser?.role || 'viewer'} activeHomeId={activeHome?.id} />;
