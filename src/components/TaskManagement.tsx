@@ -16,14 +16,8 @@ const TaskManagement = ({ tasks, setTasks, activeUserId, activeUserRole = 'viewe
   const [assignees, setAssignees] = useState([]);
 
   const [taskForm, setTaskForm] = useState({
-    title: '',
-    description: '',
-    zone: '',
-    frequency: [],
-    weekDays: [],
-    priority: 'medium',
-    assignee: '',
-    date: ''
+    title: '', description: '', zone: '', frequency: [],
+    weekDays: [], priority: 'medium', assignee: '', date: ''
   });
 
   const [customZones, setCustomZones] = useState([]);
@@ -63,6 +57,7 @@ const TaskManagement = ({ tasks, setTasks, activeUserId, activeUserRole = 'viewe
     createdAt: row.created_at
   });
 
+  // Load tasks scoped to active home
   useEffect(() => {
     if (!activeHomeId) return;
     const loadTasks = async () => {
@@ -83,21 +78,27 @@ const TaskManagement = ({ tasks, setTasks, activeUserId, activeUserRole = 'viewe
     loadTasks();
   }, [activeHomeId]);
 
+  // Load assignees scoped to active home via home_members
   useEffect(() => {
+    if (!activeHomeId) return;
     const loadUsers = async () => {
       try {
         const { data, error } = await supabase
-          .from('users')
-          .select('id, full_name')
-          .order('full_name');
+          .from('home_members')
+          .select('users(id, full_name)')
+          .eq('home_id', activeHomeId);
         if (error) throw error;
-        setAssignees((data || []).map(u => u.full_name).filter(Boolean));
+        const names = (data || [])
+          .map((row: any) => row.users?.full_name)
+          .filter(Boolean)
+          .sort();
+        setAssignees(names);
       } catch (err) {
         console.error('Could not load users:', err.message);
       }
     };
     loadUsers();
-  }, []);
+  }, [activeHomeId]);
 
   const uniqueZones = [...new Set(tasks.map(t => t.zone).filter(Boolean))];
   const uniqueAssignees = [...new Set(tasks.map(t => t.assignee).filter(Boolean))];
@@ -117,27 +118,17 @@ const TaskManagement = ({ tasks, setTasks, activeUserId, activeUserRole = 'viewe
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-
     const payload = {
-      title: taskForm.title,
-      description: taskForm.description,
-      zone: taskForm.zone,
-      frequency: taskForm.frequency,
-      week_days: taskForm.weekDays,
-      priority: taskForm.priority,
-      assignee: taskForm.assignee,
-      due_date: taskForm.date || null,
-      home_id: activeHomeId,
+      title: taskForm.title, description: taskForm.description, zone: taskForm.zone,
+      frequency: taskForm.frequency, week_days: taskForm.weekDays, priority: taskForm.priority,
+      assignee: taskForm.assignee, due_date: taskForm.date || null, home_id: activeHomeId,
     };
-
     try {
       if (editingTask) {
         const { data, error } = await supabase
           .from('tasks')
           .update({ ...payload, updated_at: new Date().toISOString() })
-          .eq('id', editingTask.id)
-          .select()
-          .single();
+          .eq('id', editingTask.id).select().single();
         if (error) throw error;
         setTasks(prev => prev.map(t => t.id === editingTask.id ? mapDbTask(data) : t));
       } else {
@@ -145,8 +136,7 @@ const TaskManagement = ({ tasks, setTasks, activeUserId, activeUserRole = 'viewe
         const { data, error } = await supabase
           .from('tasks')
           .insert({ ...payload, user_id: user?.id, completed: false })
-          .select()
-          .single();
+          .select().single();
         if (error) throw error;
         setTasks(prev => [mapDbTask(data), ...prev]);
       }
@@ -273,10 +263,8 @@ const TaskManagement = ({ tasks, setTasks, activeUserId, activeUserRole = 'viewe
           <p className="text-gray-600 mt-1">Organise and track your household tasks</p>
         </div>
         {can.canAddTask && (
-          <button
-            onClick={() => { resetForm(); setEditingTask(null); setShowTaskForm(true); }}
-            className="bg-gradient-to-r from-purple-900 to-purple-800 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-purple-900/25 hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center space-x-2"
-          >
+          <button onClick={() => { resetForm(); setEditingTask(null); setShowTaskForm(true); }}
+            className="bg-gradient-to-r from-purple-900 to-purple-800 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-purple-900/25 hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center space-x-2">
             <Plus className="w-5 h-5" />
             <span>Add Task</span>
           </button>
